@@ -107,11 +107,15 @@ export default function LoginPage() {
       const items = Array.isArray(data.data) ? data.data : [];
       const ips = items.map((item) => item.property);
 
-      // Extract permission codes from role_permissions
+      // Extract permission codes from permissions object
+      // Response: { permissions: { users: ["users:add",...], editions: [...], ... } }
       const permCodes = new Set();
       items.forEach(item => {
-        (item.role?.role_permissions || []).forEach(rp => {
-          if (rp.permission?.code) permCodes.add(rp.permission.code);
+        const perms = item.permissions || {};
+        Object.values(perms).forEach(modulePerms => {
+          if (Array.isArray(modulePerms)) {
+            modulePerms.forEach(code => permCodes.add(code));
+          }
         });
       });
       localStorage.setItem("user_permissions", JSON.stringify([...permCodes]));

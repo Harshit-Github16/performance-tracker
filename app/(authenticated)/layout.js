@@ -97,14 +97,16 @@ export default function DashboardLayout({ children }) {
   const filteredNav = navigation.filter(item => {
     // Super admin only pages
     if (item.superAdminOnly) return isSuperAdmin;
-    // Admin only pages - hide from super admin unless entered as manager
+    // Admin only pages
     if (item.adminOnly) {
-      if (isSuperAdmin) return enteredAsManager; // show when entered as manager
-      // For admin: check permission
+      if (isSuperAdmin) return enteredAsManager;
+      // If no permissions saved, show all admin pages (fallback)
+      if (userPermissions.length === 0) return true;
       return !item.permission || userPermissions.includes(item.permission);
     }
     // Pages with permission check for admin
     if (item.permission && !isSuperAdmin) {
+      if (userPermissions.length === 0) return true;
       return userPermissions.includes(item.permission);
     }
     return true;
