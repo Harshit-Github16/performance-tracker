@@ -95,8 +95,8 @@ export default function DashboardLayout({ children }) {
   const isSuperAdmin = user?.role === "super_admin";
 
   const filteredNav = navigation.filter(item => {
-    // Super admin only pages
-    if (item.superAdminOnly) return isSuperAdmin;
+    // Super admin only pages - hide when entered as manager
+    if (item.superAdminOnly) return isSuperAdmin && !enteredAsManager;
     // Admin only pages
     if (item.adminOnly) {
       if (isSuperAdmin) return enteredAsManager;
@@ -226,8 +226,12 @@ export default function DashboardLayout({ children }) {
               </div>
             ) : (
               <div className="flex flex-col cursor-pointer" onClick={() => mounted && enteredAsManager && handleSwitchToSuperAdmin()}>
-                <h2 className="text-[15px] font-bold text-gray-950 tracking-[0.08em] uppercase opacity-95 leading-none">Super Admin</h2>
-                {mounted && enteredAsManager && <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mt-0.5">Click to switch back</span>}
+                <h2 className="text-[15px] font-bold text-gray-950 tracking-[0.08em] uppercase opacity-95 leading-none">
+                  {mounted && enteredAsManager && activeIp ? activeIp.name : "Super Admin"}
+                </h2>
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+                  {mounted && enteredAsManager ? "Property Manager" : "Global System Console"}
+                </span>
               </div>
             )}
           </div>

@@ -130,6 +130,29 @@ export default function EditionsPage() {
         return map[status] || map.upcoming;
     };
 
+    // Compute which status options are disabled based on dates
+    const getDisabledStatuses = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const start = formData.start_date ? new Date(formData.start_date) : null;
+        const end = formData.end_date ? new Date(formData.end_date) : null;
+        const disabled = new Set();
+
+        if (end && end < today) {
+            // End date is in the past - upcoming not valid
+            disabled.add("upcoming");
+            disabled.add("active");
+        } else if (start && start > today) {
+            // Start date is in the future - active/completed not valid
+            disabled.add("active");
+            disabled.add("completed");
+        } else if (start && start <= today && end && end >= today) {
+            // Currently running - upcoming/completed not ideal but allow completed
+            disabled.add("upcoming");
+        }
+        return disabled;
+    };
+
     const columns = [
         {
             header: "Edition Name",
@@ -269,13 +292,14 @@ export default function EditionsPage() {
                                         type="date"
                                         required
                                         value={formData.start_date}
-                                        onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                                        onChange={(e) => setFormData({ ...formData, start_date: e.target.value, end_date: "" })}
                                     />
                                     <Input
                                         label="End Date"
                                         type="date"
                                         required
                                         value={formData.end_date}
+                                        min={formData.start_date || undefined}
                                         onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                                     />
                                 </div>
@@ -288,9 +312,14 @@ export default function EditionsPage() {
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                                     className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all capitalize"
                                 >
-                                    {STATUS_OPTIONS.map((s) => (
-                                        <option key={s} value={s} className="capitalize">{s}</option>
-                                    ))}
+                                    {STATUS_OPTIONS.map((s) => {
+                                        const disabled = getDisabledStatuses().has(s);
+                                        return (
+                                            <option key={s} value={s} disabled={disabled} className="capitalize">
+                                                {s}{disabled ? " (not available)" : ""}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                             </div>
 
