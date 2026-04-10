@@ -7,13 +7,6 @@ import { DataTable, Button, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import apiClient from "@/lib/apiClient";
 
-const ROLES = [
-    { id: 1, name: "Super Admin" },
-    { id: 2, name: "IP Admin" },
-    { id: 3, name: "Tournament Manager" },
-    { id: 4, name: "Analyst" },
-];
-
 const SkeletonRow = () => (
     <tr className="border-b border-gray-50">
         {[1, 2, 3, 4].map((i) => (
@@ -28,10 +21,12 @@ export default function UsersPage() {
     const { theme } = useTheme();
 
     const [users, setUsers] = useState([]);
+    const [roles, setRoles] = useState([]);
+    const [rolesLoading, setRolesLoading] = useState(false);
     const [tableLoading, setTableLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [formData, setFormData] = useState({ full_name: "", email: "", role_id: 3 });
+    const [formData, setFormData] = useState({ full_name: "", email: "", role_id: "" });
 
     const pageRef = useRef(null);
     const headerRef = useRef(null);
@@ -76,9 +71,31 @@ export default function UsersPage() {
         setTableLoading(false);
     };
 
+    const fetchRoles = async () => {
+        setRolesLoading(true);
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const propertyId = activeIp?.id;
+        const endpoint = propertyId
+            ? `${process.env.NEXT_PUBLIC_ROLES_ENDPOINT}?property_id=${propertyId}`
+            : process.env.NEXT_PUBLIC_ROLES_ENDPOINT;
+        const result = await apiClient.get(endpoint);
+        if (result.success) {
+            const arr = Array.isArray(result.data?.data)
+                ? result.data.data
+                : Array.isArray(result.data)
+                    ? result.data
+                    : [];
+            setRoles(arr);
+            // Set first role as default selected
+            if (arr.length > 0) setFormData(prev => ({ ...prev, role_id: arr[0].id }));
+        }
+        setRolesLoading(false);
+    };
+
     const openModal = () => {
-        setFormData({ full_name: "", email: "", role_id: 3 });
+        setFormData({ full_name: "", email: "", role_id: "" });
         setIsModalOpen(true);
+        fetchRoles();
         requestAnimationFrame(() => {
             if (modalRef.current) {
                 gsap.fromTo(modalRef.current, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" });
@@ -231,8 +248,12 @@ export default function UsersPage() {
                                     value={formData.role_id}
                                     onChange={(e) => setFormData({ ...formData, role_id: Number(e.target.value) })}
                                     className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                    required
                                 >
-                                    {ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                    {rolesLoading
+                                        ? <option>Loading...</option>
+                                        : roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)
+                                    }
                                 </select>
                             </div>
                             <div className="pt-2">

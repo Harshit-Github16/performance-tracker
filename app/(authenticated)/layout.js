@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }) {
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [enteredAsManager, setEnteredAsManager] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [userPermissions, setUserPermissions] = useState([]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -32,12 +33,15 @@ export default function DashboardLayout({ children }) {
       }
     }
     setEnteredAsManager(localStorage.getItem("entered_as_manager") === "true");
+    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    setUserPermissions(perms);
     setMounted(true);
   }, []);
 
-  // Re-check enteredAsManager on route change
   useEffect(() => {
     setEnteredAsManager(localStorage.getItem("entered_as_manager") === "true");
+    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    setUserPermissions(perms);
   }, [pathname]);
 
   // Auth guard
@@ -55,6 +59,7 @@ export default function DashboardLayout({ children }) {
     localStorage.removeItem("entered_as_manager");
     localStorage.removeItem("active_ip");
     localStorage.removeItem("elev8_theme");
+    localStorage.removeItem("user_permissions");
     setEnteredAsManager(false);
     setActiveIp(null);
     updateTheme(initialTheme);
@@ -70,26 +75,38 @@ export default function DashboardLayout({ children }) {
       icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
     },
     {
-      name: "Create IP", href: "/create-ip",
+      name: "Create IP", href: "/create-ip", superAdminOnly: true,
       icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
     },
     {
-      name: "Roles & Permissions", href: "/roles-permissions",
+      name: "Roles & Permissions", href: "/roles-permissions", permission: "role:view",
       icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
     },
     {
-      name: "Users", href: "/users",
+      name: "Users", href: "/users", adminOnly: true, permission: "users:view",
       icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
     },
     {
-      name: "Editions", href: "/editions",
+      name: "Editions", href: "/editions", adminOnly: true, permission: "editions:view",
       icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
     },
   ];
 
+  const isSuperAdmin = user?.role === "super_admin";
+
   const filteredNav = navigation.filter(item => {
-    if (item.name === "Create IP") return user?.role === "super_admin";
-    if (item.name === "Users" || item.name === "Editions") return user?.role !== "super_admin";
+    // Super admin only pages
+    if (item.superAdminOnly) return isSuperAdmin;
+    // Admin only pages - hide from super admin unless entered as manager
+    if (item.adminOnly) {
+      if (isSuperAdmin) return enteredAsManager; // show when entered as manager
+      // For admin: check permission
+      return !item.permission || userPermissions.includes(item.permission);
+    }
+    // Pages with permission check for admin
+    if (item.permission && !isSuperAdmin) {
+      return userPermissions.includes(item.permission);
+    }
     return true;
   });
 
@@ -110,9 +127,14 @@ export default function DashboardLayout({ children }) {
 
         <div className="p-6 h-20 flex items-center border-b border-gray-100 overflow-hidden">
           <div className="flex items-center justify-center w-full px-2">
-            <div className="h-10 w-full max-w-[120px] flex items-center justify-center">
-              <img src={theme.logo} alt="Logo" className="h-full w-auto object-contain scale-125" />
-            </div>
+            {!isCollapsed && (
+              <span className="text-sm font-bold text-gray-950 uppercase tracking-[0.2em] whitespace-nowrap">
+                Performance Tracker
+              </span>
+            )}
+            {isCollapsed && (
+              <span className="text-xs font-bold text-gray-950 uppercase tracking-widest">PT</span>
+            )}
           </div>
         </div>
 

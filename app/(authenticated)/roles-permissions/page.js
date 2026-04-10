@@ -169,17 +169,26 @@ export default function RolesPermissionsPage() {
     const columns = [
         {
             header: "Role Name",
-            render: (role) => <span className="text-sm font-semibold text-gray-950">{role.name}</span>
+            render: (role) => (
+                <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-950">{role.name}</span>
+                    {role.default_role && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-500 border border-blue-100 text-[10px] font-bold uppercase tracking-widest">
+                            Default
+                        </span>
+                    )}
+                </div>
+            )
         },
         {
             header: "Status",
             render: (role) => (
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-[0.15em] leading-none ${role.status === "Active" ? "bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]" : "bg-gray-50 text-gray-400 border-gray-100"}`}>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-[0.15em] leading-none ${role.status === "Active" || role.status == null ? "bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]" : "bg-gray-50 text-gray-400 border-gray-100"}`}>
                     <span className="relative flex h-1.5 w-1.5">
-                        {role.status === "Active" && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" style={{ animationDuration: '3s' }} />}
-                        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${role.status === "Active" ? "bg-emerald-500" : "bg-gray-400"}`} />
+                        {(role.status === "Active" || role.status == null) && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" style={{ animationDuration: '3s' }} />}
+                        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${role.status === "Active" || role.status == null ? "bg-emerald-500" : "bg-gray-400"}`} />
                     </span>
-                    {role.status || "Active"}
+                    Active
                 </span>
             )
         },
@@ -188,10 +197,20 @@ export default function RolesPermissionsPage() {
             align: "right",
             render: (role) => (
                 <div className="flex items-center justify-end space-x-2">
-                    <button onClick={() => switchView("edit", role)} className="h-9 w-9 rounded-xl bg-gray-50 text-gray-500 flex items-center justify-center hover:bg-gray-200 hover:text-gray-950 transition-all shadow-sm">
+                    <button
+                        onClick={() => !role.default_role && switchView("edit", role)}
+                        disabled={role.default_role}
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all shadow-sm ${role.default_role ? "bg-gray-50 text-gray-200 cursor-not-allowed" : "bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-950"}`}
+                        title={role.default_role ? "Default roles cannot be edited" : "Edit Role"}
+                    >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
-                    <button onClick={() => handleDelete(role.id, role.name)} className="h-9 w-9 rounded-xl bg-gray-50 text-gray-500 flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-all shadow-sm">
+                    <button
+                        onClick={() => !role.default_role && handleDelete(role.id, role.name)}
+                        disabled={role.default_role}
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all shadow-sm ${role.default_role ? "bg-gray-50 text-gray-200 cursor-not-allowed" : "bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-600"}`}
+                        title={role.default_role ? "Default roles cannot be deleted" : "Delete Role"}
+                    >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
