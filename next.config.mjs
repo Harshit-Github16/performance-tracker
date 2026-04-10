@@ -15,6 +15,9 @@ const nextConfig = {
 
     // Roles
     NEXT_PUBLIC_ROLES_ENDPOINT: "/roles",
+
+    // Editions
+    NEXT_PUBLIC_EDITIONS_ENDPOINT: "/editions",
   },
 };
 

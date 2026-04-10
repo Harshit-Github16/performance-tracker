@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import apiClient from "@/lib/apiClient";
+import { initialTheme } from "@/config/theme";
 
 // Sport name to ID mapping
 const SPORTS = [
@@ -82,7 +83,13 @@ export default function CreateIPPage() {
   const handleEnterIP = (ip) => {
     localStorage.setItem("active_ip", JSON.stringify(ip));
     localStorage.setItem("entered_as_manager", "true");
-    toast.success(`Entered ${ip.name} as Manager`, {
+    // Apply IP theme
+    updateTheme({
+      primaryColor: ip.primaryColor || initialTheme.primaryColor,
+      secondaryColor: ip.secondaryColor || initialTheme.secondaryColor,
+      tournamentName: ip.name,
+    });
+    toast.success(`Switched to ${ip.name}`, {
       style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' }
     });
     router.push("/dashboard");
