@@ -206,6 +206,7 @@ export default function DashboardLayout({ children }) {
                                 setIsSelectorOpen(false);
                                 if (ip?.primaryColor) updateTheme({ primaryColor: ip.primaryColor, secondaryColor: ip.secondaryColor || "#f4f4f5", tournamentName: ip.name });
                                 toast.success(`Switched to ${ip.name}`, { style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' } });
+                                router.push("/dashboard");
                               }} className={`w-full flex items-center px-4 py-3 text-left transition-all hover:bg-gray-50 ${activeIp?.id === ip.id ? 'bg-gray-50/50' : ''}`}>
                                 <div className="h-7 w-7 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center mr-3 text-[11px] font-bold text-gray-400">{ip.code?.substring(0, 2)}</div>
                                 <div className="flex flex-col">
