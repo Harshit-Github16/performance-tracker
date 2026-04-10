@@ -139,10 +139,12 @@ export default function RolesPermissionsPage() {
         if (!roleName.trim()) { toast.error("Role name is required."); return; }
 
         const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const enteredAsManager = localStorage.getItem("entered_as_manager") === "true";
         const payload = {
             name: roleName,
             permissions: Array.from(selectedCodes),
-            ...(user?.role !== "super_admin" && activeIp?.id && { property_id: activeIp.id }),
+            // Pass property_id if: admin always, or super admin entered as manager
+            ...((user?.role !== "super_admin" || enteredAsManager) && activeIp?.id && { property_id: activeIp.id }),
         };
 
         const result = editingRole

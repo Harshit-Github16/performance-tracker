@@ -95,16 +95,21 @@ export default function EditionsPage() {
         e.preventDefault();
         setIsSaving(true);
 
+        // Validate status against dates
+        if (!editingId && getDisabledStatuses().has(formData.status)) {
+            toast.error(`Status "${formData.status}" is not valid for the selected dates.`);
+            setIsSaving(false);
+            return;
+        }
+
         const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const payload = {
             ...(editingId && { id: editingId }),
             property_id: activeIp?.id,
             name: formData.name,
             status: formData.status,
-            ...(!editingId && {
-                start_date: formData.start_date,
-                end_date: formData.end_date,
-            }),
+            start_date: formData.start_date,
+            end_date: formData.end_date,
         };
 
         const result = await apiClient.post(process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT, payload);
@@ -130,7 +135,27 @@ export default function EditionsPage() {
         return map[status] || map.upcoming;
     };
 
-    // Compute which status options are disabled based on dates
+    // Auto-correct status when dates change
+    const handleDateChange = (field, value) => {
+        const updated = { ...formData, [field]: value };
+        if (field === "start_date") updated.end_date = "";
+
+        // Compute disabled for updated dates
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const start = updated.start_date ? new Date(updated.start_date) : null;
+        const end = updated.end_date ? new Date(updated.end_date) : null;
+        const disabled = new Set();
+        if (end && end < today) { disabled.add("upcoming"); disabled.add("active"); }
+        else if (start && start > today) { disabled.add("active"); disabled.add("completed"); }
+        else if (start && start <= today && end && end >= today) { disabled.add("upcoming"); }
+
+        // If current status becomes disabled, pick first valid one
+        if (disabled.has(updated.status)) {
+            const valid = STATUS_OPTIONS.find(s => !disabled.has(s));
+            if (valid) updated.status = valid;
+        }
+        setFormData(updated);
+    };
     const getDisabledStatuses = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -284,26 +309,24 @@ export default function EditionsPage() {
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             />
 
-                            {/* Dates only on create */}
-                            {!editingId && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input
-                                        label="Start Date"
-                                        type="date"
-                                        required
-                                        value={formData.start_date}
-                                        onChange={(e) => setFormData({ ...formData, start_date: e.target.value, end_date: "" })}
-                                    />
-                                    <Input
-                                        label="End Date"
-                                        type="date"
-                                        required
-                                        value={formData.end_date}
-                                        min={formData.start_date || undefined}
-                                        onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                                    />
-                                </div>
-                            )}
+                            {/* Dates - show for both create and edit */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input
+                                    label="Start Date"
+                                    type="date"
+                                    required
+                                    value={formData.start_date}
+                                    onChange={(e) => handleDateChange("start_date", e.target.value)}
+                                />
+                                <Input
+                                    label="End Date"
+                                    type="date"
+                                    required
+                                    value={formData.end_date}
+                                    min={formData.start_date || undefined}
+                                    onChange={(e) => handleDateChange("end_date", e.target.value)}
+                                />
+                            </div>
 
                             <div className="flex flex-col space-y-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Status</label>
