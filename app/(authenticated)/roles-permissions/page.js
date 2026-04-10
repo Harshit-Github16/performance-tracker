@@ -352,16 +352,6 @@ export default function RolesPermissionsPage() {
                                                                         </label>
                                                                     );
                                                                 })}
-                                                                {/* All checkbox */}
-                                                                <label className="flex items-center gap-2 cursor-pointer group">
-                                                                    <div
-                                                                        onClick={() => toggleModuleAll(mod)}
-                                                                        className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${mod.permissions.every(p => selectedCodes.has(p.id)) ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
-                                                                    >
-                                                                        {mod.permissions.every(p => selectedCodes.has(p.id)) && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                                                                    </div>
-                                                                    <span className="text-xs font-semibold text-gray-600 group-hover:text-gray-950 transition-colors">All</span>
-                                                                </label>
                                                             </div>
                                                         </td>
                                                     </tr>
