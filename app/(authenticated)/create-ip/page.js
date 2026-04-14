@@ -10,16 +10,6 @@ import gsap from "gsap";
 import apiClient from "@/lib/apiClient";
 import { initialTheme } from "@/config/theme";
 
-// Sport name to ID mapping
-const SPORTS = [
-  { id: 1, name: "Cricket" },
-  { id: 2, name: "Kabaddi" },
-  { id: 3, name: "Football" },
-  { id: 4, name: "Hockey" },
-  { id: 5, name: "Badminton" },
-  { id: 6, name: "Table Tennis" },
-  { id: 7, name: "Volleyball" },
-];
 const SkeletonRow = () => (
   <tr className="border-b border-gray-50">
     {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -47,6 +37,7 @@ export default function CreateIPPage() {
   });
 
   const [ips, setIps] = useState([]);
+  const [sports, setSports] = useState([]);
 
   const pageRef = useRef(null);
   const headerRef = useRef(null);
@@ -65,7 +56,20 @@ export default function CreateIPPage() {
     gsap.fromTo(tableRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.15 });
 
     fetchIPs();
+    fetchSports();
   }, []);
+
+  const fetchSports = async () => {
+    const result = await apiClient.get(process.env.NEXT_PUBLIC_SPORTS_ENDPOINT);
+    if (result.success) {
+      const arr = Array.isArray(result.data?.data)
+        ? result.data.data
+        : Array.isArray(result.data)
+          ? result.data
+          : [];
+      setSports(arr);
+    }
+  };
 
   const fetchIPs = async () => {
     setTableLoading(true);
@@ -345,7 +349,10 @@ export default function CreateIPPage() {
                     <div className="flex flex-col space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sport Type</label>
                       <select value={formData.sport_id} onChange={(e) => setFormData({ ...formData, sport_id: Number(e.target.value) })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950">
-                        {SPORTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {sports.length > 0
+                          ? sports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                          : <option disabled>Loading...</option>
+                        }
                       </select>
                     </div>
                   </div>

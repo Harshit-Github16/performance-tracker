@@ -18,6 +18,9 @@ const nextConfig = {
 
     // Editions
     NEXT_PUBLIC_EDITIONS_ENDPOINT: "/editions",
+
+    // Sports
+    NEXT_PUBLIC_SPORTS_ENDPOINT: "/sports",
   },
 };
 

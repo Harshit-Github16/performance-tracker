@@ -42,6 +42,12 @@ export default function DashboardLayout({ children }) {
     setEnteredAsManager(localStorage.getItem("entered_as_manager") === "true");
     const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
     setUserPermissions(perms);
+    // Also refresh activeIp on route change
+    const savedIp = localStorage.getItem("active_ip");
+    if (savedIp) {
+      const ip = JSON.parse(savedIp);
+      setActiveIp(ip);
+    }
   }, [pathname]);
 
   // Auth guard
