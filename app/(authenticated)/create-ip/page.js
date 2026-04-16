@@ -31,8 +31,8 @@ export default function CreateIPPage() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     name: "", sport_id: 1, code: "",
-    primaryColor: theme.primaryColor || "#000000",
-    secondaryColor: theme.secondaryColor || "#f4f4f5",
+    primary_color: theme.primary_color || "#000000",
+    secondary_color: theme.secondary_color || "#f4f4f5",
     logo: null, logoPreview: null, adminName: "", adminemail: "",
   });
 
@@ -62,12 +62,13 @@ export default function CreateIPPage() {
   const fetchSports = async () => {
     const result = await apiClient.get(process.env.NEXT_PUBLIC_SPORTS_ENDPOINT);
     if (result.success) {
-      const arr = Array.isArray(result.data?.data)
-        ? result.data.data
+      const arr = Array.isArray(result.data?.data?.data)
+        ? result.data.data?.data
         : Array.isArray(result.data)
           ? result.data
           : [];
       setSports(arr);
+
     }
   };
 
@@ -89,8 +90,8 @@ export default function CreateIPPage() {
     localStorage.setItem("entered_as_manager", "true");
     // Apply IP theme
     updateTheme({
-      primaryColor: ip.primaryColor || initialTheme.primaryColor,
-      secondaryColor: ip.secondaryColor || initialTheme.secondaryColor,
+      primary_color: ip.primary_color || initialTheme.primary_color,
+      secondary_color: ip.secondary_color || initialTheme.secondary_color,
       tournamentName: ip.name,
     });
     toast.success(`Switched to ${ip.name}`, {
@@ -117,8 +118,8 @@ export default function CreateIPPage() {
       name: formData.name,
       sport_id: formData.sport_id,
       code: formData.code,
-      primaryColor: formData.primaryColor,
-      secondaryColor: formData.secondaryColor,
+      primary_color: formData.primary_color,
+      secondary_color: formData.secondary_color,
       logo: formData.logoPreview || formData.logo || "",
       full_name: formData.adminName,
       email: formData.adminemail,
@@ -145,8 +146,8 @@ export default function CreateIPPage() {
       name: ip.name,
       sport_id: ip.sport_id || 1,
       code: ip.code,
-      primaryColor: ip.primaryColor || "#000000",
-      secondaryColor: ip.secondaryColor || "#f4f4f5",
+      primary_color: ip.primary_color || "#000000",
+      secondary_color: ip.secondary_color || "#f4f4f5",
       logo: null,
       logoPreview: ip.logo || null,
       adminName: ip.admin?.full_name || ip.admin?.name || "",
@@ -173,8 +174,8 @@ export default function CreateIPPage() {
     setEditingId(null);
     setFormData({
       name: "", sport_id: 1, code: "",
-      primaryColor: theme.primaryColor || "#000000",
-      secondaryColor: theme.secondaryColor || "#f4f4f5",
+      primary_color: theme.primary_color || "#000000",
+      secondary_color: theme.secondary_color || "#f4f4f5",
       logo: null, logoPreview: null, adminName: "", adminemail: "",
     });
     setCurrentStep(1);
@@ -214,13 +215,13 @@ export default function CreateIPPage() {
         <div className="flex items-center gap-2">
           <div
             className="h-6 w-6 rounded-md border border-gray-100 shadow-sm"
-            style={{ backgroundColor: ip.primaryColor || "#e5e7eb" }}
-            title={ip.primaryColor || "N/A"}
+            style={{ backgroundColor: ip.primary_color || "#e5e7eb" }}
+            title={ip.primary_color || "N/A"}
           />
           <div
             className="h-6 w-6 rounded-md border border-gray-100 shadow-sm"
-            style={{ backgroundColor: ip.secondaryColor || "#e5e7eb" }}
-            title={ip.secondaryColor || "N/A"}
+            style={{ backgroundColor: ip.secondary_color || "#e5e7eb" }}
+            title={ip.secondary_color || "N/A"}
           />
         </div>
       )
@@ -277,7 +278,7 @@ export default function CreateIPPage() {
       <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
         <div>
           <div className="flex items-center space-x-2 mb-1">
-            <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primaryColor }}></div>
+            <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primary_color }}></div>
             <span className="text-[12px] font-semibold uppercase tracking-[0.4em] text-gray-400">Management</span>
           </div>
           <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Tournament IPs</h1>
@@ -307,9 +308,11 @@ export default function CreateIPPage() {
               ))}
             </div>
             {/* Skeleton rows - same count as itemsPerPage */}
-            <tbody className="w-full">
-              {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
-            </tbody>
+            <table className="w-full">
+              <tbody>
+                {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
+              </tbody>
+            </table>
           </div>
         ) : (
           <DataTable
@@ -361,11 +364,11 @@ export default function CreateIPPage() {
                     <div className="flex gap-4">
                       <div className="flex-1 space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Primary</label>
-                        <input type="color" value={formData.primaryColor} onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })} className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0" />
+                        <input type="color" value={formData.primary_color} onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })} className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0" />
                       </div>
                       <div className="flex-1 space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Secondary</label>
-                        <input type="color" value={formData.secondaryColor} onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })} className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0" />
+                        <input type="color" value={formData.secondary_color} onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })} className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0" />
                       </div>
                     </div>
                   </div>

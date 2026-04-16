@@ -1,6 +1,6 @@
 export const initialTheme = {
-  primaryColor: "#070707ff",
-  secondaryColor: "#94b4f0ff",
+  primary_color: "#070707ff",
+  secondary_color: "#94b4f0ff",
   backgroundColor: "#fcfcfd",
   textColor: "#111827",
   tournamentName: "Indian Premier League",

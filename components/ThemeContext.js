@@ -30,8 +30,8 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--primary-color", theme.primaryColor);
-    root.style.setProperty("--secondary-color", theme.secondaryColor);
+    root.style.setProperty("--primary-color", theme.primary_color);
+    root.style.setProperty("--secondary-color", theme.secondary_color);
     root.style.setProperty("--background-color", theme.backgroundColor);
     root.style.setProperty("--text-color", theme.textColor);
     root.style.setProperty("--tournament-name", `"${theme.tournamentName}"`);

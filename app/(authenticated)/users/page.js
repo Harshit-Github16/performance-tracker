@@ -5,7 +5,14 @@ import { toast } from "sonner";
 import gsap from "gsap";
 import { DataTable, Button, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
+
+const hasPermission = (code) => {
+    if (typeof window === "undefined") return false;
+    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    return perms.includes(code);
+};
 
 const SkeletonRow = () => (
     <tr className="border-b border-gray-50">
@@ -19,6 +26,8 @@ const SkeletonRow = () => (
 
 export default function UsersPage() {
     const { theme } = useTheme();
+    const { user } = useAuth();
+    const canAdd = user?.role === "super_admin" || hasPermission("users:add");
 
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -145,7 +154,7 @@ export default function UsersPage() {
                 <div className="flex items-center gap-3">
                     <div
                         className="h-9 w-9 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                        style={{ backgroundColor: theme.primaryColor }}
+                        style={{ backgroundColor: theme.primary_color }}
                     >
                         {u.full_name?.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "U"}
                     </div>
@@ -188,14 +197,16 @@ export default function UsersPage() {
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
                     <div className="flex items-center space-x-2 mb-1">
-                        <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                        <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primary_color }} />
                         <span className="text-[12px] font-semibold uppercase tracking-[0.4em] text-gray-400">Management</span>
                     </div>
                     <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Users</h1>
                     <p className="text-[14px] text-gray-400 font-normal tracking-wide">Manage users and their access across properties.</p>
                 </div>
                 <Button
-                    onClick={openModal}
+                    onClick={canAdd ? openModal : undefined}
+                    disabled={!canAdd}
+                    title={!canAdd ? "You don't have permission to add users" : undefined}
                     icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
                 >
                     Add User

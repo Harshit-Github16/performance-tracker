@@ -14,18 +14,18 @@ export const Button = ({ children, onClick, type = "button", variant = "primary"
     switch (variant) {
       case "primary":
         return {
-          backgroundColor: theme.primaryColor || "#000",
+          backgroundColor: theme.primary_color || "#000",
           color: "#fff",
         };
       case "secondary":
         return {
-          backgroundColor: theme.secondaryColor || "#f4f4f5ff",
+          backgroundColor: theme.secondary_color || "#f4f4f5ff",
           color: "#000",
         };
       case "outline":
         return {
-          border: `1.5px solid ${theme.primaryColor || "#000"}`,
-          color: theme.primaryColor || "#000",
+          border: `1.5px solid ${theme.primary_color || "#000"}`,
+          color: theme.primary_color || "#000",
           backgroundColor: "transparent",
         };
       case "ghost":
@@ -164,7 +164,7 @@ export const DataTable = ({ columns, data, className = "", emptyMessage = "No re
                     ? "text-white shadow-lg"
                     : "text-gray-400 hover:bg-gray-50 hover:text-gray-950"
                     }`}
-                  style={currentPage === i + 1 ? { backgroundColor: theme.primaryColor } : {}}
+                  style={currentPage === i + 1 ? { backgroundColor: theme.primary_color } : {}}
                 >
                   {i + 1}
                 </button>

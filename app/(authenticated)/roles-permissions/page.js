@@ -8,6 +8,7 @@ import { DataTable, Button, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
+import AccessGuard from "@/components/AccessGuard";
 
 export default function RolesPermissionsPage() {
     const { theme } = useTheme();
@@ -225,7 +226,7 @@ export default function RolesPermissionsPage() {
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
                     <div className="flex items-center space-x-2 mb-1">
-                        <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                        <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primary_color }} />
                         <span className="text-[12px] font-semibold uppercase tracking-[0.4em] text-gray-400">Access Control</span>
                     </div>
                     <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">

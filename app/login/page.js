@@ -34,10 +34,10 @@ export default function LoginPage() {
       if (savedIp) {
         // Has active IP = fully logged in session, restore and redirect
         const ip = JSON.parse(savedIp);
-        if (ip?.primaryColor) {
+        if (ip?.primary_color) {
           updateTheme({
-            primaryColor: ip.primaryColor,
-            secondaryColor: ip.secondaryColor || initialTheme.secondaryColor,
+            primary_color: ip.primary_color,
+            secondary_color: ip.secondary_color || initialTheme.secondary_color,
             tournamentName: ip.name,
           });
         }
@@ -60,8 +60,8 @@ export default function LoginPage() {
     if (ip) {
       localStorage.setItem("active_ip", JSON.stringify(ip));
       updateTheme({
-        primaryColor: ip.primaryColor || initialTheme.primaryColor,
-        secondaryColor: ip.secondaryColor || initialTheme.secondaryColor,
+        primary_color: ip.primary_color || initialTheme.primary_color,
+        secondary_color: ip.secondary_color || initialTheme.secondary_color,
         tournamentName: ip.name,
       });
     } else {
@@ -260,8 +260,8 @@ export default function LoginPage() {
                     </div>
                     {/* Color swatches */}
                     <div className="flex items-center gap-2">
-                      {ip.primaryColor && (
-                        <div className="h-4 w-4 rounded-full border border-gray-100" style={{ backgroundColor: ip.primaryColor }} />
+                      {ip.primary_color && (
+                        <div className="h-4 w-4 rounded-full border border-gray-100" style={{ backgroundColor: ip.primary_color }} />
                       )}
                       <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-950 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

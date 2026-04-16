@@ -82,7 +82,7 @@ export default function DashboardPage() {
   const statsRef = useRef([]);
   const chartsRef = useRef([]);
 
-  const PIE_COLORS = [theme.primaryColor, theme.secondaryColor, "#94a3b8", "#cbd5e1"];
+  const PIE_COLORS = [theme.primary_color, theme.secondary_color, "#94a3b8", "#cbd5e1"];
 
   useEffect(() => {
     const tl = gsap.timeline();
@@ -110,7 +110,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="px-4">
         <div className="flex items-center space-x-2 mb-1">
-          <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+          <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primary_color }} />
           <span className="text-[12px] font-semibold uppercase tracking-[0.4em] text-gray-400">Overview</span>
         </div>
         <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Dashboard</h1>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <span className="text-2xl">{card.icon}</span>
               <div className="h-8 w-8 rounded-xl flex items-center justify-center opacity-10"
-                style={{ backgroundColor: theme.primaryColor }} />
+                style={{ backgroundColor: theme.primary_color }} />
             </div>
             <div>
               <p className="text-3xl font-bold text-gray-950">{card.value}</p>
@@ -149,20 +149,20 @@ export default function DashboardPage() {
             <AreaChart data={matchData}>
               <defs>
                 <linearGradient id="wonGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={theme.primaryColor} stopOpacity={0.2} />
-                  <stop offset="95%" stopColor={theme.primaryColor} stopOpacity={0} />
+                  <stop offset="5%" stopColor={theme.primary_color} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={theme.primary_color} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="lostGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={theme.secondaryColor} stopOpacity={0.2} />
-                  <stop offset="95%" stopColor={theme.secondaryColor} stopOpacity={0} />
+                  <stop offset="5%" stopColor={theme.secondary_color} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={theme.secondary_color} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="won" stroke={theme.primaryColor} strokeWidth={2} fill="url(#wonGrad)" name="Won" />
-              <Area type="monotone" dataKey="lost" stroke={theme.secondaryColor} strokeWidth={2} fill="url(#lostGrad)" name="Lost" />
+              <Area type="monotone" dataKey="won" stroke={theme.primary_color} strokeWidth={2} fill="url(#wonGrad)" name="Won" />
+              <Area type="monotone" dataKey="lost" stroke={theme.secondary_color} strokeWidth={2} fill="url(#lostGrad)" name="Lost" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -177,8 +177,8 @@ export default function DashboardPage() {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="teams" fill={theme.primaryColor} radius={[4, 4, 0, 0]} name="Teams" />
-              <Bar dataKey="matches" fill={theme.secondaryColor} radius={[4, 4, 0, 0]} name="Matches" />
+              <Bar dataKey="teams" fill={theme.primary_color} radius={[4, 4, 0, 0]} name="Teams" />
+              <Bar dataKey="matches" fill={theme.secondary_color} radius={[4, 4, 0, 0]} name="Matches" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -220,7 +220,7 @@ export default function DashboardPage() {
               <XAxis dataKey="round" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="avg" stroke={theme.primaryColor} strokeWidth={2.5} dot={{ fill: theme.primaryColor, r: 4 }} name="Avg Score" />
+              <Line type="monotone" dataKey="avg" stroke={theme.primary_color} strokeWidth={2.5} dot={{ fill: theme.primary_color, r: 4 }} name="Avg Score" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -235,7 +235,7 @@ export default function DashboardPage() {
               <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="logins" fill={theme.primaryColor} radius={[4, 4, 0, 0]} name="Logins" />
+              <Bar dataKey="logins" fill={theme.primary_color} radius={[4, 4, 0, 0]} name="Logins" />
             </BarChart>
           </ResponsiveContainer>
         </div>

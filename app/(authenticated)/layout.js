@@ -24,10 +24,10 @@ export default function DashboardLayout({ children }) {
     if (savedIp) {
       const ip = JSON.parse(savedIp);
       setActiveIp(ip);
-      if (ip?.primaryColor) {
+      if (ip?.primary_color) {
         updateTheme({
-          primaryColor: ip.primaryColor,
-          secondaryColor: ip.secondaryColor || "#f4f4f5",
+          primary_color: ip.primary_color,
+          secondary_color: ip.secondary_color || "#f4f4f5",
           tournamentName: ip.name,
         });
       }
@@ -125,9 +125,9 @@ export default function DashboardLayout({ children }) {
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="absolute -right-4 top-10 h-8 w-8 rounded-full bg-white/80 backdrop-blur-md border border-gray-100 flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:scale-110 transition-all duration-300 z-50 group"
-          style={{ borderColor: `${theme.primaryColor}20` }}
+          style={{ borderColor: `${theme.primary_color}20` }}
         >
-          <div className="absolute inset-0 rounded-full opacity-10 group-hover:opacity-20 transition-opacity" style={{ backgroundColor: theme.primaryColor }} />
+          <div className="absolute inset-0 rounded-full opacity-10 group-hover:opacity-20 transition-opacity" style={{ backgroundColor: theme.primary_color }} />
           <svg className={`w-4 h-4 transition-transform duration-500 ease-out ${isCollapsed ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
@@ -154,12 +154,12 @@ export default function DashboardLayout({ children }) {
                 key={item.name}
                 onClick={() => router.push(item.href)}
                 className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 group relative ${isActive ? "text-white shadow-lg shadow-black/5" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}
-                style={isActive ? { backgroundColor: theme.primaryColor } : {}}
+                style={isActive ? { backgroundColor: theme.primary_color } : {}}
               >
                 <div className={`${isActive ? "text-white" : "text-gray-400 group-hover:text-gray-900"}`}>{item.icon}</div>
                 {!isCollapsed && <span className="ml-3 whitespace-nowrap">{item.name}</span>}
                 {isCollapsed && (
-                  <div className="absolute left-full ml-4 px-3 py-2 text-white text-[10px] rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-[100] whitespace-nowrap font-semibold uppercase tracking-widest shadow-xl" style={{ backgroundColor: theme.primaryColor }}>
+                  <div className="absolute left-full ml-4 px-3 py-2 text-white text-[10px] rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-[100] whitespace-nowrap font-semibold uppercase tracking-widest shadow-xl" style={{ backgroundColor: theme.primary_color }}>
                     {item.name}
                   </div>
                 )}
@@ -210,7 +210,7 @@ export default function DashboardLayout({ children }) {
                                 localStorage.setItem("active_ip", JSON.stringify(ip));
                                 setActiveIp(ip);
                                 setIsSelectorOpen(false);
-                                if (ip?.primaryColor) updateTheme({ primaryColor: ip.primaryColor, secondaryColor: ip.secondaryColor || "#f4f4f5", tournamentName: ip.name });
+                                if (ip?.primary_color) updateTheme({ primary_color: ip.primary_color, secondary_color: ip.secondary_color || "#f4f4f5", tournamentName: ip.name });
                                 toast.success(`Switched to ${ip.name}`, { style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' } });
                                 router.push("/dashboard");
                               }} className={`w-full flex items-center px-4 py-3 text-left transition-all hover:bg-gray-50 ${activeIp?.id === ip.id ? 'bg-gray-50/50' : ''}`}>
@@ -219,7 +219,7 @@ export default function DashboardLayout({ children }) {
                                   <span className={`text-[13px] font-bold ${activeIp?.id === ip.id ? 'text-gray-950' : 'text-gray-600'}`}>{ip.name}</span>
                                   <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">{ip.sport?.name || ip.sport}</span>
                                 </div>
-                                {activeIp?.id === ip.id && <div className="ml-auto h-2 w-2 rounded-full" style={{ backgroundColor: theme.primaryColor }} />}
+                                {activeIp?.id === ip.id && <div className="ml-auto h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary_color }} />}
                               </button>
                             ))}
                           </div>
@@ -247,7 +247,7 @@ export default function DashboardLayout({ children }) {
               <button
                 onClick={handleSwitchToSuperAdmin}
                 className="relative flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest text-white transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.97] overflow-hidden"
-                style={{ backgroundColor: theme.primaryColor }}
+                style={{ backgroundColor: theme.primary_color }}
               >
                 <span className="absolute inset-0 opacity-20" style={{ background: "linear-gradient(135deg, #fff 0%, transparent 60%)" }} />
                 <svg className="w-3.5 h-3.5 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
@@ -259,7 +259,7 @@ export default function DashboardLayout({ children }) {
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.1em] mt-1">{user?.role === "super_admin" ? "Role: Super Admin" : "Role: IP Admin"}</span>
             </div>
             <div className="h-10 w-10 rounded-full border border-gray-100 bg-gray-50 flex items-center justify-center p-1 cursor-pointer hover:bg-gray-100 transition-all shadow-sm">
-              <div className="h-full w-full rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: theme.primaryColor }}>
+              <div className="h-full w-full rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: theme.primary_color }}>
                 {user?.avatar_initials || "AD"}
               </div>
             </div>
