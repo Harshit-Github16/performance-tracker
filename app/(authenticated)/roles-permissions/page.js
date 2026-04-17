@@ -73,12 +73,22 @@ export default function RolesPermissionsPage() {
         setPermsLoading(true);
         const result = await apiClient.get(`${process.env.NEXT_PUBLIC_ROLES_ENDPOINT}/permissions`);
         if (result.success) {
-            const arr = Array.isArray(result.data?.data)
+            const raw = Array.isArray(result.data?.data)
                 ? result.data.data
                 : Array.isArray(result.data)
                     ? result.data
                     : [];
-            setPermModules(arr);
+
+            // Group flat list by module (part before ":")
+            const moduleMap = {};
+            raw.forEach(perm => {
+                const moduleName = perm.code.split(":")[0];
+                if (!moduleMap[moduleName]) {
+                    moduleMap[moduleName] = { module_id: moduleName, module: moduleName, permissions: [] };
+                }
+                moduleMap[moduleName].permissions.push(perm);
+            });
+            setPermModules(Object.values(moduleMap));
             if (existingIds.size > 0) setSelectedCodes(existingIds);
         } else {
             toast.error("Failed to load permissions.");
@@ -220,7 +230,6 @@ export default function RolesPermissionsPage() {
             )
         }
     ];
-
     return (
         <div ref={pageRef} className="space-y-6">
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
@@ -330,11 +339,19 @@ export default function RolesPermissionsPage() {
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
                                             {permModules.map((mod) => {
-                                                const allSelected = mod.permissions.every(p => selectedCodes.has(p.code));
+                                                const allSelected = mod.permissions.every(p => selectedCodes.has(p.id));
                                                 return (
                                                     <tr key={mod.module_id} className="hover:bg-gray-50/30 transition-colors">
                                                         <td className="px-8 py-5 align-top">
-                                                            <span className="text-sm font-bold text-gray-950 capitalize">{mod.module.replace(/_/g, " ")}</span>
+                                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                                <div
+                                                                    onClick={() => toggleModuleAll(mod)}
+                                                                    className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${allSelected ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
+                                                                >
+                                                                    {allSelected && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                                                </div>
+                                                                <span className="text-sm font-bold text-gray-950 capitalize">{mod.module.replace(/_/g, " ")}</span>
+                                                            </label>
                                                         </td>
                                                         <td className="px-8 py-5">
                                                             <div className="flex flex-wrap gap-3">

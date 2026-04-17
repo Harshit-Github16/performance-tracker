@@ -102,6 +102,7 @@ export default function LoginPage() {
         `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_MY_PROPERTIES_ENDPOINT}`,
         { headers: { Authorization: `Bearer ${result.token}` } }
       );
+
       const data = await res.json();
       // Response: { data: [ { role, property: {...} }, ... ] }
       const items = Array.isArray(data.data) ? data.data : [];
