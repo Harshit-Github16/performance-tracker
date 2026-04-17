@@ -204,8 +204,9 @@ export default function UsersPage() {
                     <p className="text-[14px] text-gray-400 font-normal tracking-wide">Manage users and their access across properties.</p>
                 </div>
                 <Button
-                    onClick={canAdd ? openModal : undefined}
-                    disabled={!canAdd}
+                    // onClick={canAdd ? openModal : undefined}
+                    onClick={canAdd ? openModal : openModal}
+                    // disabled={!canAdd}
                     title={!canAdd ? "You don't have permission to add users" : undefined}
                     icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
                 >
