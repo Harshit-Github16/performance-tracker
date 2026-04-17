@@ -104,20 +104,15 @@ export default function LoginPage() {
       );
 
       const data = await res.json();
-      // Response: { data: [ { role, property: {...} }, ... ] }
       const items = Array.isArray(data.data) ? data.data : [];
       const ips = items.map((item) => item.property);
 
-      // Extract permission codes from permissions object
-      // Response: { permissions: { users: ["users:add",...], editions: [...], ... } }
+      // permissions is a flat array of code strings: ["users:add", "editions:view", ...]
       const permCodes = new Set();
       items.forEach(item => {
-        const perms = item.permissions || {};
-        Object.values(perms).forEach(modulePerms => {
-          if (Array.isArray(modulePerms)) {
-            modulePerms.forEach(code => permCodes.add(code));
-          }
-        });
+        if (Array.isArray(item.permissions)) {
+          item.permissions.forEach(code => permCodes.add(code));
+        }
       });
       localStorage.setItem("user_permissions", JSON.stringify([...permCodes]));
 

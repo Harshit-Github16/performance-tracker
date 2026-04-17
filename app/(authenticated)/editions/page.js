@@ -146,16 +146,17 @@ export default function EditionsPage() {
         setIsSaving(true);
         const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
 
-        const body = new FormData();
-        if (editingId) body.append("id", editingId);
-        body.append("property_id", activeIp?.id);
-        body.append("name", formData.name);
-        body.append("status", formData.status);
-        body.append("start_date", formData.start_date);
-        body.append("end_date", formData.end_date);
-        if (formData.logo) body.append("logo", formData.logo);
+        const payload = {
+            ...(editingId && { id: editingId }),
+            property_id: activeIp?.id,
+            name: formData.name,
+            status: formData.status,
+            start_date: formData.start_date,
+            end_date: formData.end_date,
+            logo: formData.logoPreview || "",
+        };
 
-        const result = await apiClient.post(process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT, body);
+        const result = await apiClient.post(process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT, payload);
         if (result.success) {
             toast.success(`${formData.name} ${editingId ? "updated" : "created"} successfully!`, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
