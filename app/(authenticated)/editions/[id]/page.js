@@ -229,7 +229,11 @@ export default function EditionDetailPage() {
     };
 
     const handleDeleteMatch = async (matchId) => {
-        const result = await apiClient.delete(`${process.env.NEXT_PUBLIC_MATCHES_ENDPOINT}/${matchId}`);
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const result = await apiClient.delete(
+            `${process.env.NEXT_PUBLIC_MATCHES_ENDPOINT}/${matchId}`,
+            { property_id: activeIp?.id }
+        );
         if (result.success) {
             setMatches(prev => prev.filter(m => m.id !== matchId));
             toast.success("Match deleted!", { style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' } });
