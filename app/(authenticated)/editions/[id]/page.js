@@ -4,11 +4,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import gsap from "gsap";
-import { Button, Input } from "@/components/UI";
+import { Button, DataTable, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import apiClient from "@/lib/apiClient";
 
-const TABS = ["Matches", "Teams", "Person", "Points Table", "Sponsorships", "Edit Details"];
+const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Edit Details"];
 
 // Matches loaded from API now
 
@@ -641,11 +641,6 @@ export default function EditionDetailPage() {
                     </div>
                 )}
 
-                {/* POINTS TABLE */}
-                {activeTab === "Points Table" && (
-                    <PointsTable teams={teams} theme={theme} />
-                )}
-
                 {/* SPONSORSHIPS */}
                 {activeTab === "Sponsorships" && (
                     <div className="space-y-4">
@@ -653,89 +648,79 @@ export default function EditionDetailPage() {
                             <Button onClick={() => openSponsorModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Sponsor</Button>
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
-                            {/* Table Header */}
-                            <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest">Sponsorships</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">All sponsors for this edition</p>
-                                </div>
-                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">
-                                    {sponsorships.length} Sponsors
-                                </span>
+                        {sponsorshipsLoading ? (
+                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                    <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />
+                                ))}
                             </div>
+                        ) : (
+                            <>
+                                <DataTable
+                                    columns={[
+                                        {
+                                            header: "#",
+                                            accessor: "index",
+                                            render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
+                                        },
+                                        {
+                                            header: "Brand",
+                                            accessor: "brand_name",
+                                            render: (row) => (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
+                                                        style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
+                                                        {row.brand_name?.slice(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-sm font-bold text-gray-950">{row.brand_name}</span>
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            header: "Type",
+                                            accessor: "sponsor_type",
+                                            render: (row) => <SponsorTypeBadge type={row.sponsor_type} theme={theme} />
+                                        },
+                                        {
+                                            header: "Contract Value",
+                                            accessor: "contract_value",
+                                            align: "right",
+                                            render: (row) => (
+                                                <span className="text-sm font-bold text-gray-950">
+                                                    ₹{Number(row.contract_value).toLocaleString("en-IN")}
+                                                </span>
+                                            )
+                                        },
+                                        {
+                                            header: "Actions",
+                                            accessor: "actions",
+                                            align: "center",
+                                            render: (row) => (
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button onClick={() => openSponsorModal(row.original)} className="h-8 px-3 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all">Edit</button>
+                                                    <button onClick={() => handleDeleteSponsor(row.original.id, row.original.brand_name)} className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all">
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    </button>
+                                                </div>
+                                            )
+                                        }
+                                    ]}
+                                    data={sponsorships.map((s, idx) => ({ ...s, index: idx + 1, original: s }))}
+                                    emptyMessage="No sponsors yet. Click 'Add Sponsor' to add one."
+                                    itemsPerPage={10}
+                                />
 
-                            {sponsorshipsLoading ? (
-                                <div className="p-6 space-y-3">
-                                    {Array.from({ length: 4 }).map((_, i) => (
-                                        <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />
-                                    ))}
-                                </div>
-                            ) : sponsorships.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-                                    <svg className="w-12 h-12 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    <p className="text-sm font-semibold">No sponsors yet. Click 'Add Sponsor' to add one.</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className="border-b border-gray-50">
-                                                <th className="text-left px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest w-8">#</th>
-                                                <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Brand</th>
-                                                <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Type</th>
-                                                <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Contract Value</th>
-                                                <th className="text-center px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {sponsorships.map((s, idx) => (
-                                                <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <span className="text-xs font-black text-gray-300">{idx + 1}</span>
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
-                                                                style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
-                                                                {s.brand_name?.slice(0, 2).toUpperCase()}
-                                                            </div>
-                                                            <span className="text-sm font-bold text-gray-950">{s.brand_name}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        <SponsorTypeBadge type={s.sponsor_type} theme={theme} />
-                                                    </td>
-                                                    <td className="px-4 py-4 text-right">
-                                                        <span className="text-sm font-bold text-gray-950">
-                                                            ₹{Number(s.contract_value).toLocaleString("en-IN")}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <button onClick={() => openSponsorModal(s)} className="h-8 px-3 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all">Edit</button>
-                                                            <button onClick={() => handleDeleteSponsor(s.id, s.brand_name)} className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all">
-                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-
-                            {/* Summary Footer */}
-                            {sponsorships.length > 0 && (
-                                <div className="px-6 py-3 border-t border-gray-50 bg-gray-50/30 flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Contract Value</span>
-                                    <span className="text-sm font-black text-gray-950">
-                                        ₹{sponsorships.reduce((sum, s) => sum + Number(s.contract_value || 0), 0).toLocaleString("en-IN")}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
+                                {/* Summary Footer */}
+                                {sponsorships.length > 0 && (
+                                    <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] px-6 py-3 flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Contract Value</span>
+                                        <span className="text-sm font-black text-gray-950">
+                                            ₹{sponsorships.reduce((sum, s) => sum + Number(s.contract_value || 0), 0).toLocaleString("en-IN")}
+                                        </span>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -920,127 +905,6 @@ function SponsorTypeBadge({ type, theme }) {
             <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
             {type}
         </span>
-    );
-}
-
-// Points Table Component
-function PointsTable({ teams, theme }) {
-    // Generate dummy stats for each team
-    const tableData = teams.map((team, i) => {
-        const played = Math.floor(Math.random() * 6) + 4;
-        const won = Math.floor(Math.random() * (played - 1)) + 1;
-        const lost = played - won;
-        const points = won * 2;
-        const nrr = ((Math.random() * 2 - 1)).toFixed(3);
-        return { team, played, won, lost, points, nrr: parseFloat(nrr) };
-    }).sort((a, b) => b.points - a.points || b.nrr - a.nrr);
-
-    // If no teams yet, show placeholder rows
-    const dummyFallback = [
-        { team: { name: "Team Alpha", short_name: "TA" }, played: 8, won: 6, lost: 2, points: 12, nrr: 0.842 },
-        { team: { name: "Royal CB", short_name: "RCB" }, played: 8, won: 5, lost: 3, points: 10, nrr: 0.512 },
-        { team: { name: "Mumbai Indians", short_name: "MI" }, played: 8, won: 4, lost: 4, points: 8, nrr: 0.124 },
-        { team: { name: "Super Kings", short_name: "SK" }, played: 8, won: 3, lost: 5, points: 6, nrr: -0.231 },
-        { team: { name: "Delhi Daredevils", short_name: "DD" }, played: 8, won: 2, lost: 6, points: 4, nrr: -0.654 },
-        { team: { name: "Kolkata Knights", short_name: "KK" }, played: 8, won: 1, lost: 7, points: 2, nrr: -1.102 },
-    ];
-
-    const rows = tableData.length > 0 ? tableData : dummyFallback;
-
-    return (
-        <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
-                {/* Table Header */}
-                <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-                    <div>
-                        <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest">Points Table</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">Season standings</p>
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">
-                        {rows.length} Teams
-                    </span>
-                </div>
-
-                {/* Desktop Table */}
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-gray-50">
-                                <th className="text-left px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest w-8">#</th>
-                                <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Team</th>
-                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">P</th>
-                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">W</th>
-                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">L</th>
-                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">NRR</th>
-                                <th className="text-center px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pts</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.map((row, idx) => {
-                                const isTop = idx < 4;
-                                const initials = row.team.short_name || row.team.name?.slice(0, 2).toUpperCase();
-                                return (
-                                    <tr key={idx} className={`border-b border-gray-50 last:border-0 transition-colors hover:bg-gray-50/50 ${idx === 0 ? "bg-amber-50/30" : ""}`}>
-                                        <td className="px-6 py-4">
-                                            <span className={`text-xs font-black ${idx === 0 ? "text-amber-500" : "text-gray-300"}`}>{idx + 1}</span>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white text-[10px] font-black shrink-0"
-                                                    style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
-                                                    {initials}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-gray-950">{row.team.name}</p>
-                                                    {isTop && (
-                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Qualifier</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <span className="text-sm font-semibold text-gray-500">{row.played}</span>
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <span className="text-sm font-bold text-emerald-600">{row.won}</span>
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <span className="text-sm font-bold text-red-400">{row.lost}</span>
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <span className={`text-sm font-semibold ${row.nrr >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                                                {row.nrr >= 0 ? "+" : ""}{row.nrr.toFixed(3)}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center justify-center h-8 w-10 rounded-xl text-sm font-black text-white shadow-sm"
-                                                style={{ backgroundColor: theme.primary_color }}>
-                                                {row.points}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Legend */}
-                <div className="px-6 py-3 border-t border-gray-50 flex items-center gap-6 bg-gray-50/30">
-                    <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Qualifier Zone (Top 4)</span>
-                    </div>
-                    <div className="flex items-center gap-4 ml-auto text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-                        <span>P = Played</span>
-                        <span>W = Won</span>
-                        <span>L = Lost</span>
-                        <span>NRR = Net Run Rate</span>
-                        <span>Pts = Points</span>
-                    </div>
-                </div>
-            </div>
-        </div>
     );
 }
 
