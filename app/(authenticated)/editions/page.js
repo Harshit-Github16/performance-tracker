@@ -169,6 +169,23 @@ export default function EditionsPage() {
         setIsSaving(false);
     };
 
+    const handleDelete = async (e, editionId, editionName) => {
+        e.stopPropagation();
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const result = await apiClient.delete(
+            `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}/${editionId}`,
+            { property_id: activeIp?.id }
+        );
+        if (result.success) {
+            setEditions(prev => prev.filter(ed => ed.id !== editionId));
+            toast.success(`${editionName} deleted!`, {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+        } else {
+            toast.error(result.error || "Failed to delete edition.");
+        }
+    };
+
     const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
     return (
@@ -244,15 +261,23 @@ export default function EditionsPage() {
                                         </span>
                                     </div>
 
-                                    {/* Edit icon on hover */}
+                                    {/* Edit + Delete icons on hover */}
                                     {canEdit && (
-                                        <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); openModal(edition); }}
                                                 className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all"
                                             >
                                                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDelete(e, edition.id, edition.name)}
+                                                className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all"
+                                            >
+                                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                             </button>
                                         </div>

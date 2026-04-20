@@ -173,10 +173,15 @@ export default function RolesPermissionsPage() {
     };
 
     const handleDelete = async (id, name) => {
-        setRoles(roles.filter(r => r.id !== id));
-        toast.success(`${name} deleted!`, {
-            style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' }
-        });
+        const result = await apiClient.delete(`${process.env.NEXT_PUBLIC_ROLES_ENDPOINT}/${id}`);
+        if (result.success) {
+            setRoles(prev => prev.filter(r => r.id !== id));
+            toast.success(`${name} deleted!`, {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' }
+            });
+        } else {
+            toast.error(result.error || "Failed to delete role.");
+        }
     };
 
     const columns = [
