@@ -147,6 +147,22 @@ export default function UsersPage() {
         setIsSaving(false);
     };
 
+    const handleDeleteUser = async (accessId, fullName) => {
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const result = await apiClient.delete(
+            `${process.env.NEXT_PUBLIC_USERS_ENDPOINT}/${accessId}`,
+            { property_id: activeIp?.id }
+        );
+        if (result.success) {
+            setUsers(prev => prev.filter(u => u.access_id !== accessId));
+            toast.success(`${fullName} removed successfully!`, {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+        } else {
+            toast.error(result.error || "Failed to delete user.");
+        }
+    };
+
     const columns = [
         {
             header: "Name",
@@ -188,6 +204,21 @@ export default function UsersPage() {
                     </span>
                     {u.is_active ? "Active" : "Inactive"}
                 </span>
+            ),
+        },
+        {
+            header: "Actions",
+            align: "center",
+            render: (u) => (
+                <button
+                    onClick={() => handleDeleteUser(u.access_id, u.full_name)}
+                    className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all mx-auto"
+                    title="Delete user"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
             ),
         },
     ];
