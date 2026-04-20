@@ -67,7 +67,7 @@ export default function EditionDetailPage() {
     const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
     const [editingPlayerId, setEditingPlayerId] = useState(null);
     const [isSavingPlayer, setIsSavingPlayer] = useState(false);
-    const [playerForm, setPlayerForm] = useState({ full_name: "", role: "PLAYER", external_id: "", source: "manual", team_id: "" });
+    const [playerForm, setPlayerForm] = useState({ full_name: "", role: "PLAYER", external_id: "", source: "KADAMBA", team_id: "" });
     const playerModalRef = useRef(null);
 
     useEffect(() => {
@@ -137,7 +137,7 @@ export default function EditionDetailPage() {
             });
         } else {
             setEditingPlayerId(null);
-            setPlayerForm({ full_name: "", role: "PLAYER", external_id: "", source: "manual", team_id: "" });
+            setPlayerForm({ full_name: "", role: "PLAYER", external_id: "", source: "KADAMBA", team_id: "" });
         }
         setIsPlayerModalOpen(true);
         requestAnimationFrame(() => {
@@ -162,7 +162,7 @@ export default function EditionDetailPage() {
             external_id: playerForm.external_id || undefined,
             source: playerForm.source || "manual",
             edition_id: Number(id),
-            ...(playerForm.team_id && { team_id: Number(playerForm.team_id) }),
+            team_id: playerForm.role === "OFFICIAL" ? null : (playerForm.team_id ? Number(playerForm.team_id) : undefined),
         };
         const result = editingPlayerId
             ? await apiClient.put(`${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${editingPlayerId}`, payload)
@@ -642,9 +642,11 @@ export default function EditionDetailPage() {
                             <div className="flex flex-col space-y-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
                                 <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                    <option value="manual">Manual</option>
-                                    <option value="import">Import</option>
-                                    <option value="api">API</option>
+                                    <option value="KADAMBA">KADAMBA</option>
+                                    <option value="SISPORT">SISPORT</option>
+                                    <option value="VOTKBD">VOTKBD</option>
+                                    <option value="STARSELEV8">STARSELEV8</option>
+                                    <option value="YKS">YKS</option>
                                 </select>
                             </div>
                             <Button type="submit" disabled={isSavingPlayer} className="w-full">
