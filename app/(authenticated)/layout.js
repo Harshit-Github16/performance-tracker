@@ -148,7 +148,7 @@ export default function DashboardLayout({ children }) {
 
         <nav className="flex-1 px-4 space-y-1 mt-8">
           {filteredNav.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
             return (
               <button
                 key={item.name}

@@ -8,7 +8,7 @@ import { Button, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import apiClient from "@/lib/apiClient";
 
-const TABS = ["Matches", "Teams", "Players", "Edit Details"];
+const TABS = ["Matches", "Teams", "Person", "Edit Details"];
 
 // Matches loaded from API now
 
@@ -499,7 +499,7 @@ export default function EditionDetailPage() {
                 )}
 
                 {/* PLAYERS */}
-                {activeTab === "Players" && (
+                {activeTab === "Person" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
                             <Button onClick={() => openPlayerModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Person</Button>
