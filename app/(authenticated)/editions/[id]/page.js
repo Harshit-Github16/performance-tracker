@@ -71,7 +71,10 @@ export default function EditionDetailPage() {
     }, [id]);
 
     const fetchEdition = async () => {
-        const result = await apiClient.get(`${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}/${id}`);
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const result = await apiClient.get(
+            `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}/${id}?property_id=${activeIp?.id}`
+        );
         if (result.success) setEdition(result.data?.data || result.data);
     };
 

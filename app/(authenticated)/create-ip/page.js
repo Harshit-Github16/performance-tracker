@@ -38,6 +38,7 @@ export default function CreateIPPage() {
 
   const [ips, setIps] = useState([]);
   const [sports, setSports] = useState([]);
+  const [ipOwners, setIpOwners] = useState([]); // owners of the IP being edited
 
   const pageRef = useRef(null);
   const headerRef = useRef(null);
@@ -123,6 +124,7 @@ export default function CreateIPPage() {
       logo: formData.logoPreview || formData.logo || "",
       full_name: formData.adminName,
       email: formData.adminemail,
+      ...(editingId && ipOwners.length > 0 && { user_id: ipOwners[0].id }),
     };
 
     const endpoint = process.env.NEXT_PUBLIC_PROPERTIES_ENDPOINT;
@@ -142,6 +144,10 @@ export default function CreateIPPage() {
 
   const handleEditIP = (ip) => {
     setEditingId(ip.id);
+    const owners = ip.ipOwners || [];
+    setIpOwners(owners);
+    // Pre-fill with first owner if only one, else leave blank for user to pick
+    const firstOwner = owners.length === 1 ? owners[0] : null;
     setFormData({
       name: ip.name,
       sport_id: ip.sport_id || 1,
@@ -150,8 +156,8 @@ export default function CreateIPPage() {
       secondary_color: ip.secondary_color || "#f4f4f5",
       logo: null,
       logoPreview: ip.logo || null,
-      adminName: ip.admin?.full_name || ip.admin?.name || "",
-      adminemail: ip.admin?.email || "",
+      adminName: firstOwner?.full_name || "",
+      adminemail: firstOwner?.email || "",
     });
     setCurrentStep(1);
     setIsModalOpen(true);
@@ -172,6 +178,7 @@ export default function CreateIPPage() {
 
   const resetForm = () => {
     setEditingId(null);
+    setIpOwners([]);
     setFormData({
       name: "", sport_id: 1, code: "",
       primary_color: theme.primary_color || "#000000",
@@ -390,9 +397,41 @@ export default function CreateIPPage() {
                 </form>
               ) : (
                 <form onSubmit={handleSaveIP} className="p-8 space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                  {/* If editing and multiple owners exist, show owner selector */}
+                  {editingId && ipOwners.length > 1 && (
+                    <div className="flex flex-col space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Select Manager</label>
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {ipOwners.map((owner) => (
+                          <button
+                            key={owner.id}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, adminName: owner.full_name, adminemail: owner.email }))}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${formData.adminemail === owner.email
+                              ? "border-gray-950 bg-gray-950 text-white"
+                              : "border-gray-100 bg-gray-50 text-gray-700 hover:border-gray-300"
+                              }`}
+                          >
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${formData.adminemail === owner.email ? "bg-white/20 text-white" : "bg-gray-200 text-gray-600"
+                              }`}>
+                              {owner.full_name?.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate">{owner.full_name}</p>
+                              <p className={`text-[11px] truncate ${formData.adminemail === owner.email ? "text-white/60" : "text-gray-400"}`}>{owner.email}</p>
+                            </div>
+                            {formData.adminemail === owner.email && (
+                              <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-gray-400 px-1">Select a manager to edit their details below</p>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-8">
-                    <Input label="Administrator Name" placeholder="e.g. John Doe" required value={formData.adminName} onChange={(e) => setFormData({ ...formData, adminName: e.target.value })} />
-                    <Input label="Manager Email" type="email" placeholder="manager@example.com" required value={formData.adminemail} onChange={(e) => setFormData({ ...formData, adminemail: e.target.value })} />
+                    <Input label="Administrator Name" placeholder="e.g. John Doe" required={!editingId} value={formData.adminName} onChange={(e) => setFormData({ ...formData, adminName: e.target.value })} />
+                    <Input label="Manager Email" type="email" placeholder="manager@example.com" required={!editingId} value={formData.adminemail} onChange={(e) => setFormData({ ...formData, adminemail: e.target.value })} />
                   </div>
                   <div className="pt-6 flex gap-4">
                     <Button variant="" onClick={handlePrevStep} className="flex-1 bg-gray-100 !text-gray-950">Back</Button>
