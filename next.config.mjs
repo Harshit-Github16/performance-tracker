@@ -22,7 +22,8 @@ const nextConfig = {
     // Sports
     NEXT_PUBLIC_SPORTS_ENDPOINT: "/sports",
     NEXT_PUBLIC_TEAMS_ENDPOINT: "/teams",
-    NEXT_PUBLIC_MATCHES_ENDPOINT: "/matches"
+    NEXT_PUBLIC_MATCHES_ENDPOINT: "/matches",
+    NEXT_PUBLIC_PERSONS_ENDPOINT: "/persons",
 
   },
 };

@@ -14,14 +14,14 @@ const TABS = ["Matches", "Teams", "Players", "Edit Details"];
 
 // Teams loaded from API now
 
-const DUMMY_PLAYERS = [
-    { id: 1, name: "Rohit Sharma", role: "Batsman", runs: 542 },
-    { id: 2, name: "MS Dhoni", role: "Wicket Keeper", runs: 310 },
-    { id: 3, name: "Virat Kohli", role: "Batsman", runs: 741 },
-    { id: 4, name: "Andre Russell", role: "All Rounder", runs: 452 },
-    { id: 5, name: "Jasprit Bumrah", role: "Bowler", wickets: 22 },
-    { id: 6, name: "Ravindra Jadeja", role: "All Rounder", wickets: 14 },
-];
+const ROLE_OPTIONS = ["PLAYER", "OFFICIAL", "COACH", "MANAGER"];
+
+const ROLE_COLORS = {
+    PLAYER: "#1e3a5f",
+    OFFICIAL: "#3a1e5f",
+    COACH: "#1e5f3a",
+    MANAGER: "#5f3a1e",
+};
 
 const STATUS_OPTIONS = ["upcoming", "active", "completed", "cancelled"];
 
@@ -61,6 +61,15 @@ export default function EditionDetailPage() {
     const contentRef = useRef(null);
     const modalRef = useRef(null);
 
+    // Players state
+    const [players, setPlayers] = useState([]);
+    const [playersLoading, setPlayersLoading] = useState(false);
+    const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
+    const [editingPlayerId, setEditingPlayerId] = useState(null);
+    const [isSavingPlayer, setIsSavingPlayer] = useState(false);
+    const [playerForm, setPlayerForm] = useState({ full_name: "", role: "PLAYER", external_id: "", source: "manual", team_id: "" });
+    const playerModalRef = useRef(null);
+
     useEffect(() => {
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
@@ -68,6 +77,7 @@ export default function EditionDetailPage() {
         fetchEdition();
         fetchMatches();
         fetchTeams();
+        fetchPlayers();
     }, [id]);
 
     const fetchEdition = async () => {
@@ -100,6 +110,85 @@ export default function EditionDetailPage() {
             setTeams(Array.isArray(arr) ? arr : []);
         }
         setTeamsLoading(false);
+    };
+
+    const fetchPlayers = async () => {
+        setPlayersLoading(true);
+        const result = await apiClient.get(process.env.NEXT_PUBLIC_PERSONS_ENDPOINT);
+        if (result.success) {
+            const arr = result.data?.data?.persons
+                || result.data?.persons
+                || (Array.isArray(result.data?.data) ? result.data.data : null)
+                || (Array.isArray(result.data) ? result.data : []);
+            setPlayers(Array.isArray(arr) ? arr : []);
+        }
+        setPlayersLoading(false);
+    };
+
+    const openPlayerModal = (player = null) => {
+        if (player) {
+            setEditingPlayerId(player.id);
+            setPlayerForm({
+                full_name: player.full_name || "",
+                role: player.role || "PLAYER",
+                external_id: player.external_id || "",
+                source: player.source || "manual",
+                team_id: player.team_id ? String(player.team_id) : (player.team?.id ? String(player.team.id) : (player.edition_participants?.[0]?.team_id ? String(player.edition_participants[0].team_id) : "")),
+            });
+        } else {
+            setEditingPlayerId(null);
+            setPlayerForm({ full_name: "", role: "PLAYER", external_id: "", source: "manual", team_id: "" });
+        }
+        setIsPlayerModalOpen(true);
+        requestAnimationFrame(() => {
+            if (playerModalRef.current)
+                gsap.fromTo(playerModalRef.current, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" });
+        });
+    };
+
+    const closePlayerModal = () => {
+        gsap.to(playerModalRef.current, {
+            scale: 0.95, opacity: 0, duration: 0.2, ease: "power2.in",
+            onComplete: () => setIsPlayerModalOpen(false),
+        });
+    };
+
+    const handleSavePlayer = async (e) => {
+        e.preventDefault();
+        setIsSavingPlayer(true);
+        const payload = {
+            full_name: playerForm.full_name,
+            role: playerForm.role,
+            external_id: playerForm.external_id || undefined,
+            source: playerForm.source || "manual",
+            edition_id: Number(id),
+            ...(playerForm.team_id && { team_id: Number(playerForm.team_id) }),
+        };
+        const result = editingPlayerId
+            ? await apiClient.put(`${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${editingPlayerId}`, payload)
+            : await apiClient.post(process.env.NEXT_PUBLIC_PERSONS_ENDPOINT, payload);
+        if (result.success) {
+            toast.success(`${playerForm.full_name} ${editingPlayerId ? "updated" : "registered"} successfully!`, {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+            await fetchPlayers();
+            closePlayerModal();
+        } else {
+            toast.error(result.error || "Failed to save player.");
+        }
+        setIsSavingPlayer(false);
+    };
+
+    const handleDeletePlayer = async (playerId, playerName) => {
+        const result = await apiClient.delete(`${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${playerId}`);
+        if (result.success) {
+            setPlayers(prev => prev.filter(p => p.id !== playerId));
+            toast.success(`${playerName} removed!`, {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+        } else {
+            toast.error(result.error || "Failed to delete player.");
+        }
     };
 
     const openTeamModal = (team = null) => {
@@ -413,27 +502,55 @@ export default function EditionDetailPage() {
                 {activeTab === "Players" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
-                            <Button icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Player</Button>
+                            <Button onClick={() => openPlayerModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Person</Button>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                            {DUMMY_PLAYERS.map((player, i) => (
-                                <div key={player.id} className="group bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200 cursor-pointer">
-                                    <div className="relative h-28 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${PLAYER_COLORS[i % PLAYER_COLORS.length]} 0%, ${PLAYER_COLORS[i % PLAYER_COLORS.length]}99 100%)` }}>
-                                        <div className="h-14 w-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
-                                            <span className="text-white font-black text-lg">
-                                                {player.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
-                                            </span>
+                        {playersLoading ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
+                                        <div className="h-28 bg-gray-100" />
+                                        <div className="px-4 py-3 space-y-2">
+                                            <div className="h-3 bg-gray-100 rounded w-3/4" />
+                                            <div className="h-2 bg-gray-100 rounded w-1/2" />
                                         </div>
                                     </div>
-                                    <div className="px-4 py-3">
-                                        <p className="text-sm font-bold text-gray-950 truncate">{player.name}</p>
-                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em] mt-0.5">{player.role}</p>
-                                        {player.runs && <p className="text-[10px] text-gray-300 mt-1 font-medium">{player.runs} runs</p>}
-                                        {player.wickets && <p className="text-[10px] text-gray-300 mt-1 font-medium">{player.wickets} wickets</p>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        ) : players.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                                <svg className="w-12 h-12 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                <p className="text-sm font-semibold">No players yet. Click 'Add Player' to register one.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                {players.map((player) => {
+                                    const initials = player.full_name?.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "??";
+                                    const bgColor = ROLE_COLORS[player.role] || "#1e3a5f";
+                                    return (
+                                        <div key={player.id} className="group bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200">
+                                            <div className="relative h-28 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}99 100%)` }}>
+                                                <div className="h-14 w-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
+                                                    <span className="text-white font-black text-lg">{initials}</span>
+                                                </div>
+                                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                    <button onClick={(e) => { e.stopPropagation(); openPlayerModal(player); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all">
+                                                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeletePlayer(player.id, player.full_name); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all">
+                                                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="px-4 py-3">
+                                                <p className="text-sm font-bold text-gray-950 truncate">{player.full_name}</p>
+                                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em] mt-0.5">{player.role}</p>
+                                                {player.external_id && <p className="text-[10px] text-gray-300 mt-1 font-medium">ID: {player.external_id}</p>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -491,6 +608,53 @@ export default function EditionDetailPage() {
                 </div>
             )}
 
+            {/* Player Modal */}
+            {isPlayerModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Register Person"}</h3>
+                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
+                            </div>
+                            <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
+                            <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
+                                    <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
+                                    <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        <option value="">No Team</option>
+                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
+                                <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                    <option value="manual">Manual</option>
+                                    <option value="import">Import</option>
+                                    <option value="api">API</option>
+                                </select>
+                            </div>
+                            <Button type="submit" disabled={isSavingPlayer} className="w-full">
+                                {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
+                            </Button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* Team Modal */}
             {isTeamModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
@@ -513,9 +677,10 @@ export default function EditionDetailPage() {
                             </Button>
                         </form>
                     </div>
-                </div>
-            )}
-        </div>
+                </div >
+            )
+            }
+        </div >
     );
 }
 
