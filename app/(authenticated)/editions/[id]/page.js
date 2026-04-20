@@ -8,7 +8,7 @@ import { Button, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import apiClient from "@/lib/apiClient";
 
-const TABS = ["Matches", "Teams", "Person", "Edit Details"];
+const TABS = ["Matches", "Teams", "Person", "Points Table", "Edit Details"];
 
 // Matches loaded from API now
 
@@ -554,6 +554,11 @@ export default function EditionDetailPage() {
                     </div>
                 )}
 
+                {/* POINTS TABLE */}
+                {activeTab === "Points Table" && (
+                    <PointsTable teams={teams} theme={theme} />
+                )}
+
                 {/* EDIT DETAILS */}
                 {activeTab === "Edit Details" && edition && (
                     <EditDetailsForm edition={edition} id={id} theme={theme} onSaved={fetchEdition} />
@@ -683,6 +688,127 @@ export default function EditionDetailPage() {
             )
             }
         </div >
+    );
+}
+
+// Points Table Component
+function PointsTable({ teams, theme }) {
+    // Generate dummy stats for each team
+    const tableData = teams.map((team, i) => {
+        const played = Math.floor(Math.random() * 6) + 4;
+        const won = Math.floor(Math.random() * (played - 1)) + 1;
+        const lost = played - won;
+        const points = won * 2;
+        const nrr = ((Math.random() * 2 - 1)).toFixed(3);
+        return { team, played, won, lost, points, nrr: parseFloat(nrr) };
+    }).sort((a, b) => b.points - a.points || b.nrr - a.nrr);
+
+    // If no teams yet, show placeholder rows
+    const dummyFallback = [
+        { team: { name: "Team Alpha", short_name: "TA" }, played: 8, won: 6, lost: 2, points: 12, nrr: 0.842 },
+        { team: { name: "Royal CB", short_name: "RCB" }, played: 8, won: 5, lost: 3, points: 10, nrr: 0.512 },
+        { team: { name: "Mumbai Indians", short_name: "MI" }, played: 8, won: 4, lost: 4, points: 8, nrr: 0.124 },
+        { team: { name: "Super Kings", short_name: "SK" }, played: 8, won: 3, lost: 5, points: 6, nrr: -0.231 },
+        { team: { name: "Delhi Daredevils", short_name: "DD" }, played: 8, won: 2, lost: 6, points: 4, nrr: -0.654 },
+        { team: { name: "Kolkata Knights", short_name: "KK" }, played: 8, won: 1, lost: 7, points: 2, nrr: -1.102 },
+    ];
+
+    const rows = tableData.length > 0 ? tableData : dummyFallback;
+
+    return (
+        <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                {/* Table Header */}
+                <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+                    <div>
+                        <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest">Points Table</h3>
+                        <p className="text-xs text-gray-400 mt-0.5">Season standings</p>
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">
+                        {rows.length} Teams
+                    </span>
+                </div>
+
+                {/* Desktop Table */}
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-gray-50">
+                                <th className="text-left px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest w-8">#</th>
+                                <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Team</th>
+                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">P</th>
+                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">W</th>
+                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">L</th>
+                                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">NRR</th>
+                                <th className="text-center px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, idx) => {
+                                const isTop = idx < 4;
+                                const initials = row.team.short_name || row.team.name?.slice(0, 2).toUpperCase();
+                                return (
+                                    <tr key={idx} className={`border-b border-gray-50 last:border-0 transition-colors hover:bg-gray-50/50 ${idx === 0 ? "bg-amber-50/30" : ""}`}>
+                                        <td className="px-6 py-4">
+                                            <span className={`text-xs font-black ${idx === 0 ? "text-amber-500" : "text-gray-300"}`}>{idx + 1}</span>
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white text-[10px] font-black shrink-0"
+                                                    style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
+                                                    {initials}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-950">{row.team.name}</p>
+                                                    {isTop && (
+                                                        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500">Qualifier</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <span className="text-sm font-semibold text-gray-500">{row.played}</span>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <span className="text-sm font-bold text-emerald-600">{row.won}</span>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <span className="text-sm font-bold text-red-400">{row.lost}</span>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <span className={`text-sm font-semibold ${row.nrr >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                                                {row.nrr >= 0 ? "+" : ""}{row.nrr.toFixed(3)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="inline-flex items-center justify-center h-8 w-10 rounded-xl text-sm font-black text-white shadow-sm"
+                                                style={{ backgroundColor: theme.primary_color }}>
+                                                {row.points}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Legend */}
+                <div className="px-6 py-3 border-t border-gray-50 flex items-center gap-6 bg-gray-50/30">
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Qualifier Zone (Top 4)</span>
+                    </div>
+                    <div className="flex items-center gap-4 ml-auto text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                        <span>P = Played</span>
+                        <span>W = Won</span>
+                        <span>L = Lost</span>
+                        <span>NRR = Net Run Rate</span>
+                        <span>Pts = Points</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 
