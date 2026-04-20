@@ -153,7 +153,7 @@ export default function EditionsPage() {
             status: formData.status,
             start_date: formData.start_date,
             end_date: formData.end_date,
-            logo: formData.logoPreview || "",
+            // logo: formData.logoPreview || "",
         };
 
         const result = await apiClient.post(process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT, payload);

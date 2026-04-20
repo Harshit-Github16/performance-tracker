@@ -784,7 +784,7 @@ export default function EditionDetailPage() {
                     <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                             <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Register Person"}</h3>
+                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
                                 <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
                             </div>
                             <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
