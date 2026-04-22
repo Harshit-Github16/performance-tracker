@@ -5,6 +5,8 @@ const nextConfig = {
 
     // Auth
     NEXT_PUBLIC_LOGIN_ENDPOINT: "/auth/login",
+    NEXT_PUBLIC_FORGOT_PASSWORD_ENDPOINT: "/auth/forgot-password",
+    NEXT_PUBLIC_RESET_PASSWORD_ENDPOINT: "/auth/reset-password",
 
     // Properties (IPs)
     NEXT_PUBLIC_PROPERTIES_ENDPOINT: "/properties",
@@ -24,8 +26,7 @@ const nextConfig = {
     NEXT_PUBLIC_TEAMS_ENDPOINT: "/teams",
     NEXT_PUBLIC_MATCHES_ENDPOINT: "/matches",
     NEXT_PUBLIC_PERSONS_ENDPOINT: "/persons",
-    NEXT_PUBLIC_SPONSORSHIPS_ENDPOINT: "/sponsorships/"
-
+    NEXT_PUBLIC_SPONSORSHIPS_ENDPOINT: "/sponsorships",
   },
 };
 

@@ -39,6 +39,8 @@ export default function CreateIPPage() {
   const [ips, setIps] = useState([]);
   const [sports, setSports] = useState([]);
   const [ipOwners, setIpOwners] = useState([]); // owners of the IP being edited
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, name } of IP to delete
+  const deleteModalRef = useRef(null);
 
   const pageRef = useRef(null);
   const headerRef = useRef(null);
@@ -163,7 +165,16 @@ export default function CreateIPPage() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteIP = async (id, name) => {
+  const handleDeleteIP = (id, name) => {
+    setDeleteConfirm({ id, name });
+    requestAnimationFrame(() => {
+      if (deleteModalRef.current)
+        gsap.fromTo(deleteModalRef.current, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "power3.out" });
+    });
+  };
+
+  const confirmDelete = async () => {
+    const { id, name } = deleteConfirm;
     const endpoint = process.env.NEXT_PUBLIC_PROPERTIES_ENDPOINT;
     const result = await apiClient.delete(`${endpoint}/${id}`);
     if (result.success) {
@@ -174,6 +185,7 @@ export default function CreateIPPage() {
     } else {
       toast.error(result.error || "Failed to delete property.");
     }
+    setDeleteConfirm(null);
   };
 
   const resetForm = () => {
@@ -439,6 +451,40 @@ export default function CreateIPPage() {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+          <div ref={deleteModalRef} className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+            <div className="p-6 flex flex-col items-center text-center">
+              {/* Warning icon */}
+              <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+                <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-bold text-gray-950 uppercase tracking-tight mb-1">Delete Property?</h3>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">{deleteConfirm.name}</p>
+              <p className="text-sm text-gray-500 leading-relaxed mb-6">
+                This action is permanent. All data associated with this property — including editions, teams, players, matches, and sponsorships — will be lost and cannot be recovered.
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 h-11 rounded-xl bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 h-11 rounded-xl bg-red-500 text-white text-xs font-bold uppercase tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Yes, Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>

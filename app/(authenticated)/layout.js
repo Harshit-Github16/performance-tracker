@@ -16,6 +16,12 @@ export default function DashboardLayout({ children }) {
   const [enteredAsManager, setEnteredAsManager] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [userPermissions, setUserPermissions] = useState([]);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ password: "", confirm: "" });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -53,12 +59,30 @@ export default function DashboardLayout({ children }) {
   // Auth guard
   useEffect(() => {
     if (loading) return;
-    if (!user) router.replace("/login");
+    if (!user) { router.replace("/login"); return; }
+    // Non-super-admin with no assigned properties → block
+    if (user.role !== "super_admin") {
+      const ips = user.ips || [];
+      const activeIp = localStorage.getItem("active_ip");
+      if (ips.length === 0 && !activeIp) {
+        router.replace("/no-access");
+      }
+    }
   }, [user, loading]);
 
   const handleLogout = () => {
     updateTheme(initialTheme);
     logout();
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    // API integration coming soon
+    toast.success("Feature coming soon.", {
+      style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+    });
+    setIsChangePasswordOpen(false);
+    setPasswordForm({ password: "", confirm: "" });
   };
 
   const handleSwitchToSuperAdmin = () => {
@@ -231,7 +255,7 @@ export default function DashboardLayout({ children }) {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col cursor-pointer" onClick={() => mounted && enteredAsManager && handleSwitchToSuperAdmin()}>
+              <div className="flex flex-col">
                 <h2 className="text-[15px] font-bold text-gray-950 tracking-[0.08em] uppercase opacity-95 leading-none">
                   {mounted && enteredAsManager && activeIp ? activeIp.name : "Super Admin"}
                 </h2>
@@ -258,13 +282,122 @@ export default function DashboardLayout({ children }) {
               <span className="text-[13px] font-bold text-gray-950 uppercase tracking-tight leading-none">{user?.username || "Admin"}</span>
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.1em] mt-1">{user?.role === "super_admin" ? "Role: Super Admin" : "Role: IP Admin"}</span>
             </div>
-            <div className="h-10 w-10 rounded-full border border-gray-100 bg-gray-50 flex items-center justify-center p-1 cursor-pointer hover:bg-gray-100 transition-all shadow-sm">
-              <div className="h-full w-full rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: theme.primary_color }}>
-                {user?.avatar_initials || "AD"}
+            <div className="relative">
+              <div
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="h-10 w-10 rounded-full border border-gray-100 bg-gray-50 flex items-center justify-center p-1 cursor-pointer hover:bg-gray-100 transition-all shadow-sm"
+              >
+                <div className="h-full w-full rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: theme.primary_color }}>
+                  {user?.avatar_initials || "AD"}
+                </div>
               </div>
+
+              {/* Profile Dropdown */}
+              {isProfileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
+                  <div className="absolute right-0 top-12 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-4 py-2 border-b border-gray-50 mb-1">
+                      <p className="text-[11px] font-bold text-gray-950 uppercase tracking-widest truncate">{user?.username || "Admin"}</p>
+                      <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mt-0.5">{user?.role === "super_admin" ? "Super Admin" : "IP Admin"}</p>
+                    </div>
+                    <button
+                      onClick={() => { setIsProfileOpen(false); setIsChangePasswordOpen(true); setPasswordForm({ password: "", confirm: "" }); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-gray-950 transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                      </svg>
+                      Change Password
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
+
           </div>
         </header>
+
+        {/* Change Password Modal */}
+        {isChangePasswordOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+                <div>
+                  <h3 className="text-base font-bold text-gray-950 uppercase tracking-tight">Change Password</h3>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Set a new password</p>
+                </div>
+                <button
+                  onClick={() => setIsChangePasswordOpen(false)}
+                  className="h-9 w-9 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+                {/* New Password */}
+                <div className="flex flex-col space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">New Password</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      required
+                      value={passwordForm.password}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
+                      className="w-full px-5 py-4 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium text-gray-950 outline-none transition-all focus:bg-white focus:border-gray-950"
+                    />
+                    <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-950 transition-colors">
+                      {showNewPassword
+                        ? <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                        : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="flex flex-col space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Confirm New Password</label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      required
+                      value={passwordForm.confirm}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                      className="w-full px-5 py-4 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium text-gray-950 outline-none transition-all focus:bg-white focus:border-gray-950"
+                    />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-950 transition-colors">
+                      {showConfirmPassword
+                        ? <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                        : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                {/* Match indicator */}
+                {passwordForm.confirm && (
+                  <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${passwordForm.password === passwordForm.confirm ? "text-emerald-500" : "text-red-400"}`}>
+                    {passwordForm.password === passwordForm.confirm ? "✓ Passwords match" : "✗ Passwords do not match"}
+                  </p>
+                )}
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword}
+                    className="w-full h-12 rounded-xl text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 hover:brightness-110"
+                    style={{ backgroundColor: theme.primary_color }}
+                  >
+                    {isChangingPassword ? "UPDATING..." : "Update Password"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto p-6 md:px-10 md:py-6 bg-[#fafafa] relative">
           <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
