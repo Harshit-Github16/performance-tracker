@@ -25,11 +25,9 @@ export default function MetricDefinitionsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [modalStep, setModalStep] = useState(1);
-    const [isSportsDropdownOpen, setIsSportsDropdownOpen] = useState(false);
 
     const defaultForm = {
-        sport_id: [],
+        sport_id: "",
         label: "",
         key_name: "",
         data_type: "integer",
@@ -66,7 +64,7 @@ export default function MetricDefinitionsPage() {
     const fetchCategory = async () => {
         const result = await apiClient.get(`${process.env.NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT}/${categoryId}`);
         if (result.success) {
-            const data = result.data?.metric_categories || result.metric_categories;
+            const data = result.data?.data || result.data;
             setCategory(data);
         }
     };
@@ -95,6 +93,7 @@ export default function MetricDefinitionsPage() {
 
         if (result.success) {
             const data = result.data?.data;
+            console.log("datadatadatadatadata", data)
             const arr = Array.isArray(data?.metric_definitions) ? data.metric_definitions
                 : Array.isArray(data) ? data
                     : [];
@@ -123,7 +122,7 @@ export default function MetricDefinitionsPage() {
         if (def) {
             setEditingId(def.id);
             setFormData({
-                sport_id: Array.isArray(def.sport_id) ? def.sport_id : (def.sport_id ? [def.sport_id] : []),
+                sport_id: Array.isArray(def.sport_id) ? (def.sport_id[0] || "") : (def.sport_id || ""),
                 label: def.label || "",
                 key_name: def.key_name || "",
                 data_type: def.data_type || "integer",
@@ -134,7 +133,6 @@ export default function MetricDefinitionsPage() {
             setEditingId(null);
             setFormData(defaultForm);
         }
-        setModalStep(1);
         setIsModalOpen(true);
         requestAnimationFrame(() => {
             if (modalRef.current)
@@ -149,45 +147,16 @@ export default function MetricDefinitionsPage() {
         });
     };
 
-    const toggleSport = (sportId) => {
-        setFormData(prev => {
-            const ids = prev.sport_id.includes(sportId)
-                ? prev.sport_id.filter(id => id !== sportId)
-                : [...prev.sport_id, sportId];
-            return { ...prev, sport_id: ids };
-        });
-    };
-
-    const handleNextStep = () => {
-        if (modalStep === 1) {
-            if (formData.sport_id.length === 0) {
-                toast.error("Please select at least one sport.");
-                return;
-            }
-            if (!formData.label.trim()) {
-                toast.error("Label is required.");
-                return;
-            }
-            if (!formData.key_name.trim()) {
-                toast.error("Key name is required.");
-                return;
-            }
-            setModalStep(2);
-        }
-    };
-
-    const handlePrevStep = () => {
-        if (modalStep === 2) {
-            setModalStep(1);
-        }
-    };
-
     const handleSave = async (e) => {
         e.preventDefault();
+        if (!formData.sport_id) {
+            toast.error("Please select a sport.");
+            return;
+        }
 
         setIsSaving(true);
         const payload = {
-            sport_id: formData.sport_id,
+            sport_id: [Number(formData.sport_id)],
             category_id: Number(categoryId),
             label: formData.label.trim(),
             key_name: formData.key_name.trim().toLowerCase().replace(/\s+/g, "_"),
@@ -426,7 +395,7 @@ export default function MetricDefinitionsPage() {
                                     {editingId ? "Edit Definition" : "Add Definition"}
                                 </h3>
                                 <p className="text-xs text-gray-400 font-bold mt-1.5 tracking-widest uppercase">
-                                    Step {modalStep} of 2 — {modalStep === 1 ? "Basic Info" : "Configuration"}
+                                    {editingId ? "Update metric definition" : "Create a new metric definition"}
                                 </p>
                             </div>
                             <button
@@ -439,223 +408,96 @@ export default function MetricDefinitionsPage() {
                             </button>
                         </div>
 
-                        {/* Progress Bar */}
-                        <div className="h-1 bg-gray-100">
-                            <div
-                                className="h-full transition-all duration-300"
-                                style={{ width: `${(modalStep / 2) * 100}%`, backgroundColor: theme.primary_color }}
+                        <form onSubmit={handleSave} className="p-8 space-y-5">
+                            {/* Sport Dropdown */}
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sport</label>
+                                <select
+                                    value={formData.sport_id}
+                                    onChange={(e) => setFormData({ ...formData, sport_id: e.target.value })}
+                                    required
+                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                >
+                                    <option value="">Select Sport</option>
+                                    {sports.map((sport) => (
+                                        <option key={sport.id} value={sport.id}>
+                                            {sport.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <Input
+                                label="Label"
+                                placeholder="e.g. Runs Scored"
+                                required
+                                value={formData.label}
+                                onChange={(e) => setFormData({ ...formData, label: e.target.value })}
                             />
-                        </div>
 
-                        <form onSubmit={modalStep === 2 ? handleSave : (e) => { e.preventDefault(); handleNextStep(); }} className="p-8 space-y-5">
-                            {/* Step 1 */}
-                            {modalStep === 1 && (
-                                <>
-                                    {/* Custom Sports Dropdown with Checkboxes */}
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sports *</label>
+                            <Input
+                                label="Key Name"
+                                placeholder="e.g. runs_scored"
+                                required
+                                value={formData.key_name}
+                                onChange={(e) => setFormData({
+                                    ...formData,
+                                    key_name: e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, ""),
+                                })}
+                            />
 
-                                        {/* Dropdown Button */}
-                                        <div className="relative">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsSportsDropdownOpen(!isSportsDropdownOpen)}
-                                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all flex items-center justify-between"
-                                            >
-                                                <span className={formData.sport_id.length === 0 ? "text-gray-400" : "text-gray-950"}>
-                                                    {formData.sport_id.length === 0
-                                                        ? "Select sports..."
-                                                        : `${formData.sport_id.length} sport${formData.sport_id.length > 1 ? 's' : ''} selected`
-                                                    }
-                                                </span>
-                                                <svg
-                                                    className={`w-4 h-4 text-gray-400 transition-transform ${isSportsDropdownOpen ? 'rotate-180' : ''}`}
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke="currentColor"
-                                                >
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Data Type</label>
+                                    <select
+                                        value={formData.data_type}
+                                        onChange={(e) => setFormData({ ...formData, data_type: e.target.value })}
+                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                    >
+                                        {DATA_TYPES.map(t => (
+                                            <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Target Level</label>
+                                    <select
+                                        value={formData.target_level}
+                                        onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
+                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                    >
+                                        {TARGET_LEVELS.map(l => (
+                                            <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Required</label>
+                                <div className="flex items-center h-[52px] px-5 bg-gray-50 border border-gray-100 rounded-xl">
+                                    <label className="flex items-center gap-3 cursor-pointer group/check">
+                                        <div
+                                            onClick={() => setFormData(prev => ({ ...prev, is_required: !prev.is_required }))}
+                                            className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${formData.is_required ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
+                                        >
+                                            {formData.is_required && (
+                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                                 </svg>
-                                            </button>
-
-                                            {/* Dropdown Menu */}
-                                            {isSportsDropdownOpen && (
-                                                <>
-                                                    <div
-                                                        className="fixed inset-0 z-10"
-                                                        onClick={() => setIsSportsDropdownOpen(false)}
-                                                    />
-                                                    <div className="absolute z-20 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-                                                        {sports.length === 0 ? (
-                                                            <div className="px-4 py-3 text-xs text-gray-400">Loading sports...</div>
-                                                        ) : (
-                                                            <div className="p-2">
-                                                                {sports.map((sport) => {
-                                                                    const isSelected = formData.sport_id.includes(sport.id);
-                                                                    return (
-                                                                        <label
-                                                                            key={sport.id}
-                                                                            className="flex items-center gap-3 cursor-pointer group hover:bg-gray-50 px-3 py-2.5 rounded-lg transition-all"
-                                                                        >
-                                                                            <div
-                                                                                onClick={() => toggleSport(sport.id)}
-                                                                                className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer shrink-0 ${isSelected ? "border-gray-950 bg-gray-950" : "border-gray-200 group-hover:border-gray-400"}`}
-                                                                            >
-                                                                                {isSelected && (
-                                                                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                                                    </svg>
-                                                                                )}
-                                                                            </div>
-                                                                            <span className={`text-sm font-semibold transition-colors ${isSelected ? "text-gray-950" : "text-gray-600 group-hover:text-gray-950"}`}>
-                                                                                {sport.name}
-                                                                            </span>
-                                                                        </label>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </>
                                             )}
                                         </div>
+                                        <span className="text-sm font-semibold text-gray-600 group-hover/check:text-gray-950 transition-colors">
+                                            {formData.is_required ? "Yes — this metric is required" : "No — optional metric"}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
 
-                                        {/* Selected Sports Labels */}
-                                        {formData.sport_id.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 pt-2">
-                                                {formData.sport_id.map((sportId) => {
-                                                    const sport = sports.find(s => s.id === sportId);
-                                                    if (!sport) return null;
-                                                    return (
-                                                        <span
-                                                            key={sportId}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest text-white shadow-sm"
-                                                            style={{ backgroundColor: theme.primary_color }}
-                                                        >
-                                                            {sport.name}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleSport(sportId)}
-                                                                className="hover:bg-white/20 rounded-full p-0.5 transition-all"
-                                                            >
-                                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                                                </svg>
-                                                            </button>
-                                                        </span>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <Input
-                                        label="Label"
-                                        placeholder="e.g. Runs Scored"
-                                        required
-                                        value={formData.label}
-                                        onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                                    />
-
-                                    <Input
-                                        label="Key Name"
-                                        placeholder="e.g. runs_scored"
-                                        required
-                                        value={formData.key_name}
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            key_name: e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, ""),
-                                        })}
-                                    />
-                                </>
-                            )}
-
-                            {/* Step 2 */}
-                            {modalStep === 2 && (
-                                <>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="flex flex-col space-y-2">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Data Type</label>
-                                            <select
-                                                value={formData.data_type}
-                                                onChange={(e) => setFormData({ ...formData, data_type: e.target.value })}
-                                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                            >
-                                                {DATA_TYPES.map(t => (
-                                                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <div className="flex flex-col space-y-2">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Target Level</label>
-                                            <select
-                                                value={formData.target_level}
-                                                onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
-                                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                            >
-                                                {TARGET_LEVELS.map(l => (
-                                                    <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Required</label>
-                                        <div className="flex items-center h-[52px] px-5 bg-gray-50 border border-gray-100 rounded-xl">
-                                            <label className="flex items-center gap-3 cursor-pointer group/check">
-                                                <div
-                                                    onClick={() => setFormData(prev => ({ ...prev, is_required: !prev.is_required }))}
-                                                    className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${formData.is_required ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
-                                                >
-                                                    {formData.is_required && (
-                                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                    )}
-                                                </div>
-                                                <span className="text-sm font-semibold text-gray-600 group-hover/check:text-gray-950 transition-colors">
-                                                    {formData.is_required ? "Yes — this metric is required" : "No — optional metric"}
-                                                </span>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    {/* Summary */}
-                                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2">
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Summary</p>
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-xs text-gray-500 font-semibold">Label:</span>
-                                                <span className="text-xs text-gray-950 font-bold">{formData.label || "—"}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-xs text-gray-500 font-semibold">Key:</span>
-                                                <span className="text-xs text-gray-950 font-mono font-bold">{formData.key_name || "—"}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-xs text-gray-500 font-semibold">Sports:</span>
-                                                <span className="text-xs text-gray-950 font-bold">{formData.sport_id.length} selected</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Navigation Buttons */}
-                            <div className="pt-2 flex gap-3">
-                                {modalStep === 2 && (
-                                    <button
-                                        type="button"
-                                        onClick={handlePrevStep}
-                                        className="flex-1 h-12 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold uppercase tracking-widest transition-all hover:bg-gray-200"
-                                    >
-                                        Back
-                                    </button>
-                                )}
-                                <Button type="submit" disabled={isSaving} className="flex-1">
-                                    {modalStep === 1 ? "NEXT STEP" : (isSaving ? "SAVING..." : editingId ? "SAVE CHANGES" : "CREATE DEFINITION")}
+                            <div className="pt-2">
+                                <Button type="submit" disabled={isSaving} className="w-full">
+                                    {isSaving ? "SAVING..." : editingId ? "SAVE CHANGES" : "CREATE DEFINITION"}
                                 </Button>
                             </div>
                         </form>
