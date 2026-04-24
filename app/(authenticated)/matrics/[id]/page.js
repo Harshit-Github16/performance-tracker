@@ -93,7 +93,6 @@ export default function MetricDefinitionsPage() {
 
         if (result.success) {
             const data = result.data?.data;
-            console.log("datadatadatadatadata", data)
             const arr = Array.isArray(data?.metric_definitions) ? data.metric_definitions
                 : Array.isArray(data) ? data
                     : [];
