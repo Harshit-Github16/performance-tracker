@@ -27,7 +27,13 @@ const nextConfig = {
     NEXT_PUBLIC_MATCHES_ENDPOINT: "/matches",
     NEXT_PUBLIC_PERSONS_ENDPOINT: "/persons",
     NEXT_PUBLIC_SPONSORSHIPS_ENDPOINT: "/sponsorships",
+
+    // Metrics
+    NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT: "/metric-categories",
+    NEXT_PUBLIC_METRIC_DEFINITIONS_ENDPOINT: "/metric-definitions",
   },
 };
 
 export default nextConfig;
+
+
