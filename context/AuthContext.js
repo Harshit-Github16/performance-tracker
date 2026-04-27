@@ -86,6 +86,8 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("entered_as_manager");
     localStorage.removeItem("elev8_theme");
     localStorage.removeItem("user_permissions");
+    localStorage.removeItem("is_ip_owner");
+    localStorage.removeItem("metric_trees");
     router.push("/login");
   };
 

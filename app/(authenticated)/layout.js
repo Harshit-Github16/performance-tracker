@@ -23,6 +23,8 @@ export default function DashboardLayout({ children }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [hasMetricTrees, setHasMetricTrees] = useState(false);
+  const [isIpOwner, setIsIpOwner] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -42,6 +44,15 @@ export default function DashboardLayout({ children }) {
     setEnteredAsManager(localStorage.getItem("entered_as_manager") === "true");
     const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
     setUserPermissions(perms);
+
+    // Check if metric trees exist for non-super-admin users
+    const metricTrees = localStorage.getItem("metric_trees");
+    setHasMetricTrees(!!metricTrees);
+
+    // Check if user is IP Owner
+    const ipOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+    setIsIpOwner(ipOwner);
+
     setMounted(true);
   }, []);
 
@@ -49,6 +60,15 @@ export default function DashboardLayout({ children }) {
     setEnteredAsManager(localStorage.getItem("entered_as_manager") === "true");
     const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
     setUserPermissions(perms);
+
+    // Check if metric trees exist for non-super-admin users
+    const metricTrees = localStorage.getItem("metric_trees");
+    setHasMetricTrees(!!metricTrees);
+
+    // Check if user is IP Owner
+    const ipOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+    setIsIpOwner(ipOwner);
+
     // Also refresh activeIp on route change
     const savedIp = localStorage.getItem("active_ip");
     if (savedIp) {
@@ -157,6 +177,10 @@ export default function DashboardLayout({ children }) {
       name: "Matrics", href: "/matrics", superAdminOnly: true,
       icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M10 3v18M14 3v18" /></svg>
     },
+    {
+      name: "Matrics", href: "/matrics-form", adminOnly: true, showIfMetricTrees: true, permission: "data_entry:view",
+      icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+    },
   ];
 
   const isSuperAdmin = user?.role === "super_admin";
@@ -167,12 +191,18 @@ export default function DashboardLayout({ children }) {
     // Admin only pages
     if (item.adminOnly) {
       if (isSuperAdmin) return enteredAsManager;
+      // Check if metric trees are required
+      if (item.showIfMetricTrees && !hasMetricTrees) return false;
+      // IP Owner has access to all pages
+      if (isIpOwner) return true;
       // If no permissions saved, show all admin pages (fallback)
       if (userPermissions.length === 0) return true;
       return !item.permission || userPermissions.includes(item.permission);
     }
     // Pages with permission check for admin
     if (item.permission && !isSuperAdmin) {
+      // IP Owner has access to all pages
+      if (isIpOwner) return true;
       if (userPermissions.length === 0) return true;
       return userPermissions.includes(item.permission);
     }

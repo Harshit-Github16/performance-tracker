@@ -120,6 +120,10 @@ export default function LoginPage() {
       const items = Array.isArray(data.data) ? data.data : [];
       const ips = items.map((item) => item.property);
 
+      // Check if user is IP Owner (role_id: 2) for any property
+      const isIpOwner = items.some(item => item.role_id === 2);
+      localStorage.setItem("is_ip_owner", JSON.stringify(isIpOwner));
+
       // permissions is a flat array of code strings: ["users:add", "editions:view", ...]
       const permCodes = new Set();
       items.forEach(item => {
@@ -128,6 +132,38 @@ export default function LoginPage() {
         }
       });
       localStorage.setItem("user_permissions", JSON.stringify([...permCodes]));
+
+      // Fetch metric categories tree for each property using sport_id
+      const metricTreePromises = ips.map(async (ip) => {
+        const sportId = ip.sport_id || ip.sport?.id;
+        if (!sportId) return null;
+
+        try {
+          const treeRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT}/get-tree/${sportId}`,
+            { headers: { Authorization: `Bearer ${result.token}` } }
+          );
+          if (treeRes.ok) {
+            const treeData = await treeRes.json();
+            return { propertyId: ip.id, sportId, tree: treeData.data || treeData };
+          }
+        } catch (err) {
+          console.error(`Failed to fetch metric tree for sport ${sportId}:`, err);
+        }
+        return null;
+      });
+
+      const metricTrees = await Promise.all(metricTreePromises);
+      const validTrees = metricTrees.filter(Boolean);
+
+      // Store metric trees in localStorage for later use
+      if (validTrees.length > 0) {
+        const treesMap = {};
+        validTrees.forEach(({ propertyId, sportId, tree }) => {
+          treesMap[propertyId] = { sportId, tree };
+        });
+        localStorage.setItem("metric_trees", JSON.stringify(treesMap));
+      }
 
       // Save ips into context & localStorage so navbar dropdown works
       updateUserIps(ips);
