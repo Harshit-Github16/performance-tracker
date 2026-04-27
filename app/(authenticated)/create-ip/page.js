@@ -36,6 +36,14 @@ export default function CreateIPPage() {
     logo: null, logoPreview: null, adminName: "", adminemail: "",
   });
 
+  const [errors, setErrors] = useState({
+    name: "",
+    code: "",
+    colors: "",
+    logo: "",
+    sport_id: "",
+  });
+
   const [ips, setIps] = useState([]);
   const [sports, setSports] = useState([]);
   const [ipOwners, setIpOwners] = useState([]); // owners of the IP being edited
@@ -105,10 +113,53 @@ export default function CreateIPPage() {
 
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
-    if (file) setFormData({ ...formData, logo: file, logoPreview: URL.createObjectURL(file) });
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
+    if (!validTypes.includes(file.type)) {
+      setErrors(prev => ({ ...prev, logo: "Only PNG, JPG, and SVG formats are allowed" }));
+      return;
+    }
+
+    // Validate file size (2MB max)
+    const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+    if (file.size > maxSize) {
+      setErrors(prev => ({ ...prev, logo: "File size must be less than 2MB" }));
+      return;
+    }
+
+    // Clear error and set file
+    setErrors(prev => ({ ...prev, logo: "" }));
+    setFormData({ ...formData, logo: file, logoPreview: URL.createObjectURL(file) });
   };
 
-  const handleNextStep = (e) => { e.preventDefault(); setCurrentStep(2); };
+  const handleNextStep = (e) => {
+    e.preventDefault();
+
+    // Validate IP Name length (3-50 characters)
+    if (formData.name.trim().length < 3 || formData.name.trim().length > 50) {
+      setErrors(prev => ({ ...prev, name: "IP Name must be between 3 and 50 characters" }));
+      return;
+    }
+
+    // Validate IP Code format (uppercase, 3-10 characters, alphanumeric)
+    const codePattern = /^[A-Z0-9_]{3,10}$/;
+    if (!codePattern.test(formData.code)) {
+      setErrors(prev => ({ ...prev, code: "Code must be 3-10 uppercase letters, numbers, or underscores" }));
+      return;
+    }
+
+    // Validate colors are different
+    if (formData.primary_color.toLowerCase() === formData.secondary_color.toLowerCase()) {
+      setErrors(prev => ({ ...prev, colors: "Primary and Secondary colors must be different" }));
+      return;
+    }
+
+    // Clear all errors and proceed
+    setErrors({ name: "", code: "", colors: "", logo: "", sport_id: "" });
+    setCurrentStep(2);
+  };
   const handlePrevStep = () => setCurrentStep(1);
 
   const handleSaveIP = async (e) => {
@@ -197,6 +248,7 @@ export default function CreateIPPage() {
       secondary_color: theme.secondary_color || "#f4f4f5",
       logo: null, logoPreview: null, adminName: "", adminemail: "",
     });
+    setErrors({ name: "", code: "", colors: "", logo: "", sport_id: "" });
     setCurrentStep(1);
   };
 
@@ -367,34 +419,118 @@ export default function CreateIPPage() {
               {currentStep === 1 ? (
                 <form onSubmit={handleNextStep} className="p-8 space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="grid grid-cols-2 gap-8">
-                    <Input label="IP Name" placeholder="e.g. PKL" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                     <div className="flex flex-col space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sport Type</label>
-                      <select value={formData.sport_id} onChange={(e) => setFormData({ ...formData, sport_id: Number(e.target.value) })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                        IP Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. PKL"
+                        required
+                        value={formData.name}
+                        maxLength={50}
+                        onChange={(e) => {
+                          setFormData({ ...formData, name: e.target.value });
+                          setErrors(prev => ({ ...prev, name: "" }));
+                        }}
+                        className={`w-full px-5 py-4 bg-gray-50 border rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 ${errors.name ? "border-red-300 bg-red-50/30" : "border-gray-100"}`}
+                      />
+                      <p className={`text-[10px] font-medium px-1 ${errors.name ? "text-red-500" : "text-gray-400"}`}>
+                        {errors.name || `${formData.name.length}/50 characters`}
+                      </p>
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                        Sport Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.sport_id}
+                        onChange={(e) => {
+                          setFormData({ ...formData, sport_id: Number(e.target.value) });
+                          setErrors(prev => ({ ...prev, sport_id: "" }));
+                        }}
+                        className={`w-full px-5 py-4 bg-gray-50 border rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 ${errors.sport_id ? "border-red-300 bg-red-50/30" : "border-gray-100"}`}
+                      >
                         {sports.length > 0
                           ? sports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
                           : <option disabled>Loading...</option>
                         }
                       </select>
+                      {errors.sport_id && (
+                        <p className="text-xs text-red-500 font-medium px-1">{errors.sport_id}</p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-8">
-                    <Input label="IP Identifier" placeholder="CODE_01" required value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} />
+                    <div className="flex flex-col space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                        IP Identifier <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="CODE_01"
+                        required
+                        value={formData.code}
+                        maxLength={10}
+                        onChange={(e) => {
+                          const upperValue = e.target.value.toUpperCase();
+                          setFormData({ ...formData, code: upperValue });
+                          setErrors(prev => ({ ...prev, code: "" }));
+                        }}
+                        pattern="[A-Z0-9_]{3,10}"
+                        className={`w-full px-5 py-4 bg-gray-50 border rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 uppercase ${errors.code ? "border-red-300 bg-red-50/30" : "border-gray-100"}`}
+                      />
+                      <p className={`text-[10px] font-medium px-1 ${errors.code ? "text-red-500" : "text-gray-400"}`}>
+                        {errors.code || `Uppercase letters, numbers, underscores only (${formData.code.length}/10 chars)`}
+                      </p>
+                    </div>
                     <div className="flex gap-4">
                       <div className="flex-1 space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Primary</label>
-                        <input type="color" value={formData.primary_color} onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })} className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0" />
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                          Primary <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="color"
+                          value={formData.primary_color}
+                          onChange={(e) => {
+                            setFormData({ ...formData, primary_color: e.target.value });
+                            setErrors(prev => ({ ...prev, colors: "" }));
+                          }}
+                          className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0"
+                        />
                       </div>
                       <div className="flex-1 space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Secondary</label>
-                        <input type="color" value={formData.secondary_color} onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })} className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0" />
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                          Secondary <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="color"
+                          value={formData.secondary_color}
+                          onChange={(e) => {
+                            setFormData({ ...formData, secondary_color: e.target.value });
+                            setErrors(prev => ({ ...prev, colors: "" }));
+                          }}
+                          className="h-12 w-full rounded-xl cursor-pointer border-none bg-gray-50 focus:ring-0"
+                        />
                       </div>
                     </div>
                   </div>
+                  {errors.colors && (
+                    <p className="text-xs text-red-500 font-medium px-1 -mt-4">{errors.colors}</p>
+                  )}
                   <div className="space-y-3">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Brand Logo Asset</label>
-                    <div onClick={() => fileInputRef.current.click()} className="w-full h-36 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden">
-                      <input type="file" ref={fileInputRef} onChange={handleLogoChange} accept="image/*" className="hidden" />
+                    <div
+                      onClick={() => fileInputRef.current.click()}
+                      className={`w-full h-36 border-2 border-dashed rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden ${errors.logo ? "border-red-300 bg-red-50/30" : "border-gray-100"}`}
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleLogoChange}
+                        accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                        className="hidden"
+                      />
                       {formData.logoPreview
                         ? <img src={formData.logoPreview} alt="Preview" className="w-full h-full object-contain p-4" />
                         : <>
@@ -404,8 +540,17 @@ export default function CreateIPPage() {
                           <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Upload Brand Identity</span>
                         </>}
                     </div>
+                    <p className={`text-[10px] font-medium px-1 ${errors.logo ? "text-red-500" : "text-gray-400"}`}>
+                      {errors.logo || "Accepted formats: PNG, JPG, SVG • Max size: 2MB"}
+                    </p>
                   </div>
-                  <Button type="submit" className="w-full">Continue to Admin Setup</Button>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={!formData.name.trim() || !formData.code.trim() || formData.name.trim().length < 3 || formData.code.trim().length < 3}
+                  >
+                    Continue to Admin Setup
+                  </Button>
                 </form>
               ) : (
                 <form onSubmit={handleSaveIP} className="p-8 space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -442,8 +587,34 @@ export default function CreateIPPage() {
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-8">
-                    <Input label="Administrator Name" placeholder="e.g. John Doe" required={!editingId} value={formData.adminName} onChange={(e) => setFormData({ ...formData, adminName: e.target.value })} />
-                    <Input label="Manager Email" type="email" placeholder="manager@example.com" required={!editingId} value={formData.adminemail} onChange={(e) => setFormData({ ...formData, adminemail: e.target.value })} />
+                    <div className="flex flex-col space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                        {!editingId && <span>Administrator Name <span className="text-red-500">*</span></span>}
+                        {editingId && "Administrator Name"}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. John Doe"
+                        required={!editingId}
+                        value={formData.adminName}
+                        onChange={(e) => setFormData({ ...formData, adminName: e.target.value })}
+                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950"
+                      />
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                        {!editingId && <span>Manager Email <span className="text-red-500">*</span></span>}
+                        {editingId && "Manager Email"}
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="manager@example.com"
+                        required={!editingId}
+                        value={formData.adminemail}
+                        onChange={(e) => setFormData({ ...formData, adminemail: e.target.value })}
+                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950"
+                      />
+                    </div>
                   </div>
                   <div className="pt-6 flex gap-4">
                     <Button variant="" onClick={handlePrevStep} className="flex-1 bg-gray-100 !text-gray-950">Back</Button>
