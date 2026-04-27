@@ -154,6 +154,7 @@ export default function RolesPermissionsPage() {
         const payload = {
             name: roleName,
             permissions: Array.from(selectedCodes),
+            is_active: roleStatus === "Active",
             // Pass property_id if: admin always, or super admin entered as manager
             ...((user?.role !== "super_admin" || enteredAsManager) && activeIp?.id && { property_id: activeIp.id }),
         };
@@ -200,15 +201,22 @@ export default function RolesPermissionsPage() {
         },
         {
             header: "Status",
-            render: (role) => (
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-[0.15em] leading-none ${role.status === "Active" || role.status == null ? "bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]" : "bg-gray-50 text-gray-400 border-gray-100"}`}>
-                    <span className="relative flex h-1.5 w-1.5">
-                        {(role.status === "Active" || role.status == null) && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" style={{ animationDuration: '3s' }} />}
-                        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${role.status === "Active" || role.status == null ? "bg-emerald-500" : "bg-gray-400"}`} />
+            render: (role) => {
+                // Check is_active field (boolean) or status field (string)
+                const isActive = role.is_active !== undefined
+                    ? role.is_active
+                    : (role.status === "Active" || role.status === null || role.status === undefined);
+
+                return (
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-[0.15em] leading-none ${isActive ? "bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]" : "bg-gray-50 text-gray-400 border-gray-100"}`}>
+                        <span className="relative flex h-1.5 w-1.5">
+                            {isActive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" style={{ animationDuration: '3s' }} />}
+                            <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isActive ? "bg-emerald-500" : "bg-gray-400"}`} />
+                        </span>
+                        {isActive ? "Active" : "Inactive"}
                     </span>
-                    Active
-                </span>
-            )
+                );
+            }
         },
         {
             header: "Action",
