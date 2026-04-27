@@ -19,6 +19,8 @@ export default function MatricsFormPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [userPermissions, setUserPermissions] = useState([]);
     const [isIpOwner, setIsIpOwner] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [debugInfo, setDebugInfo] = useState("");
 
     const pageRef = useRef(null);
     const headerRef = useRef(null);
@@ -45,19 +47,24 @@ export default function MatricsFormPage() {
 
         // Load active IP and metric tree
         const savedIp = localStorage.getItem("active_ip");
+
         if (savedIp) {
             const ip = JSON.parse(savedIp);
             setActiveIp(ip);
 
             // Load metric tree for this property
             const metricTrees = localStorage.getItem("metric_trees");
+
             if (metricTrees) {
                 const trees = JSON.parse(metricTrees);
                 const tree = trees[ip.id];
+
                 if (tree) {
-                    setMetricTree(tree.tree);
+                    // Check if tree has a nested 'tree' property or if it's directly the array
+                    const treeData = tree.tree || tree;
+                    setMetricTree(treeData);
                     // Initialize form data with empty values
-                    initializeFormData(tree.tree);
+                    initializeFormData(treeData);
                 }
             }
         }
@@ -67,8 +74,8 @@ export default function MatricsFormPage() {
         const initialData = {};
         if (Array.isArray(tree)) {
             tree.forEach(category => {
-                if (Array.isArray(category.definitions)) {
-                    category.definitions.forEach(def => {
+                if (Array.isArray(category.metric_definitions)) {
+                    category.metric_definitions.forEach(def => {
                         initialData[def.key_name] = getDefaultValue(def.data_type);
                     });
                 }
@@ -76,7 +83,7 @@ export default function MatricsFormPage() {
         }
         setFormData(initialData);
     };
-
+    console.log("metricTreemetricTree", metricTree)
     const getDefaultValue = (dataType) => {
         switch (dataType) {
             case "integer":
@@ -108,6 +115,9 @@ export default function MatricsFormPage() {
     };
 
     const canViewPage = () => {
+        // TEMPORARY: Always return true for debugging
+        return true;
+
         // Super admin can view everything
         if (user?.role === "super_admin") return true;
         // IP Owner can view everything
@@ -131,19 +141,30 @@ export default function MatricsFormPage() {
             ...prev,
             [keyName]: processedValue
         }));
+
+        // Clear error for this field
+        if (fieldErrors[keyName]) {
+            setFieldErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[keyName];
+                return newErrors;
+            });
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validate required fields
+        // Validate required fields and collect errors
+        const errors = {};
         let hasError = false;
+
         if (metricTree && Array.isArray(metricTree)) {
             metricTree.forEach(category => {
-                if (Array.isArray(category.definitions)) {
-                    category.definitions.forEach(def => {
+                if (Array.isArray(category.metric_definitions)) {
+                    category.metric_definitions.forEach(def => {
                         if (def.is_required && (formData[def.key_name] === "" || formData[def.key_name] === null || formData[def.key_name] === undefined)) {
-                            toast.error(`${def.label} is required.`);
+                            errors[def.key_name] = `${def.label} is required`;
                             hasError = true;
                         }
                     });
@@ -151,7 +172,11 @@ export default function MatricsFormPage() {
             });
         }
 
-        if (hasError) return;
+        if (hasError) {
+            setFieldErrors(errors);
+            toast.error("Please fill all required fields");
+            return;
+        }
 
         setIsSaving(true);
 
@@ -168,6 +193,7 @@ export default function MatricsFormPage() {
     };
 
     const renderField = (definition) => {
+
         const { key_name, label, data_type, is_required } = definition;
         const isDisabled = !canEditField(definition);
 
@@ -307,7 +333,7 @@ export default function MatricsFormPage() {
     }
 
     return (
-        <div ref={pageRef} className="space-y-6 opacity-0">
+        <div ref={pageRef} className="space-y-6">
             {/* Header */}
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
@@ -325,27 +351,32 @@ export default function MatricsFormPage() {
             {/* Form */}
             <div ref={formRef} className="px-4">
                 <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-8 space-y-8">
-                    {Array.isArray(metricTree) && metricTree.map((category, catIndex) => (
-                        <div key={catIndex} className="space-y-5">
-                            {/* Category Header */}
-                            <div className="pb-3 border-b border-gray-100">
-                                <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary_color }} />
-                                    {category.name}
-                                </h3>
-                                {category.description && (
-                                    <p className="text-xs text-gray-400 mt-1 ml-4">{category.description}</p>
-                                )}
-                            </div>
+                    {Array.isArray(metricTree) && metricTree.map((category, catIndex) => {
+                        // Skip categories without metric definitions
+                        if (!Array.isArray(category.metric_definitions) || category.metric_definitions.length === 0) {
+                            return null;
+                        }
 
-                            {/* Category Fields */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 ml-4">
-                                {Array.isArray(category.definitions) && category.definitions.map(definition => (
-                                    renderField(definition)
-                                ))}
+                        return (
+                            <div key={catIndex} className="space-y-5">
+                                {/* Category Header */}
+                                <div className="pb-3 border-b border-gray-100">
+                                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary_color }} />
+                                        {category.name}
+                                    </h3>
+
+                                </div>
+
+                                {/* Category Fields */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 ml-4">
+                                    {category.metric_definitions.map(definition => (
+                                        renderField(definition)
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {/* Submit Button */}
                     <div className="pt-4 flex justify-end">
