@@ -27,8 +27,13 @@ export default function MatricsFormPage() {
     const formRef = useRef(null);
 
     useEffect(() => {
-        if (user && user.role === "super_admin") {
-            router.push("/dashboard");
+        // Super admin should not access matrics-form page UNLESS they entered as manager
+        const enteredAsManager = localStorage.getItem("entered_as_manager") === "true";
+
+        if (user && user.role === "super_admin" && !enteredAsManager) {
+            // Super admin in normal mode - redirect to category management
+            router.push("/matrics");
+            return;
         }
     }, [user, router]);
 
@@ -65,10 +70,49 @@ export default function MatricsFormPage() {
                     setMetricTree(treeData);
                     // Initialize form data with empty values
                     initializeFormData(treeData);
+                } else {
+                    // Tree not found in localStorage, fetch from API
+                    fetchMetricTree(ip);
                 }
+            } else {
+                // No metric trees in localStorage, fetch from API
+                fetchMetricTree(ip);
             }
         }
     }, []);
+
+    const fetchMetricTree = async (ip) => {
+        const sportId = ip.sport_id || ip.sport?.id;
+        if (!sportId) {
+            console.error("No sport ID found for property");
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("auth_token");
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT}/get-tree/${sportId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.ok) {
+                const result = await response.json();
+                const treeData = result.data || result;
+
+                if (Array.isArray(treeData)) {
+                    console.log("✅ Fetched metric tree from API:", treeData);
+                    setMetricTree(treeData);
+                    initializeFormData(treeData);
+                } else {
+                    console.error("Invalid tree data format:", treeData);
+                }
+            } else {
+                console.error("Failed to fetch metric tree:", response.status);
+            }
+        } catch (error) {
+            console.error("Error fetching metric tree:", error);
+        }
+    };
 
     const initializeFormData = (tree) => {
         const initialData = {};
