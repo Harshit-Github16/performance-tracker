@@ -124,7 +124,9 @@ export default function EditionDetailPage() {
 
     const fetchPlayers = async () => {
         setPlayersLoading(true);
-        const result = await apiClient.get(process.env.NEXT_PUBLIC_PERSONS_ENDPOINT);
+        const result = await apiClient.get(
+            `${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}?edition_id=${id}`
+        );
         if (result.success) {
             const arr = result.data?.data?.persons
                 || result.data?.persons
