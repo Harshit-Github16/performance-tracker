@@ -132,7 +132,7 @@ export default function DashboardPage() {
   const P = theme.primary_color;
   const S = theme.secondary_color;
 
-  const PIE_COLORS = [P, S, "#94a3b8", "#64748b", "#cbd5e1"];
+  const PIE_COLORS = [P, S, `${P}80`, `${S}80`, `${P}40`];
 
   const STAT_CARDS = [
     { label: "Total IPs", value: "4", sub: "+1 this month", icon: "🏆", trend: 25, color: P },
@@ -185,12 +185,12 @@ export default function DashboardPage() {
                   <stop offset="100%" stopColor={P} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gLost" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f87171" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="#f87171" stopOpacity={0} />
+                  <stop offset="0%" stopColor={S} stopOpacity={0.2} />
+                  <stop offset="100%" stopColor={S} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gDraw" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#94a3b8" stopOpacity={0} />
+                  <stop offset="0%" stopColor={`${P}60`} stopOpacity={0.15} />
+                  <stop offset="100%" stopColor={`${P}60`} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -198,12 +198,12 @@ export default function DashboardPage() {
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="won" stroke={P} strokeWidth={2.5} fill="url(#gWon)" name="Won" dot={false} activeDot={{ r: 5, fill: P }} />
-              <Area type="monotone" dataKey="lost" stroke="#f87171" strokeWidth={2} fill="url(#gLost)" name="Lost" dot={false} activeDot={{ r: 5, fill: "#f87171" }} />
-              <Area type="monotone" dataKey="draw" stroke="#94a3b8" strokeWidth={1.5} fill="url(#gDraw)" name="Draw" dot={false} activeDot={{ r: 4, fill: "#94a3b8" }} />
+              <Area type="monotone" dataKey="lost" stroke={S} strokeWidth={2} fill="url(#gLost)" name="Lost" dot={false} activeDot={{ r: 5, fill: S }} />
+              <Area type="monotone" dataKey="draw" stroke={`${P}60`} strokeWidth={1.5} fill="url(#gDraw)" name="Draw" dot={false} activeDot={{ r: 4, fill: `${P}60` }} />
             </AreaChart>
           </ResponsiveContainer>
           <div className="flex items-center gap-5 mt-3">
-            {[["Won", P], ["Lost", "#f87171"], ["Draw", "#94a3b8"]].map(([l, c]) => (
+            {[["Won", P], ["Lost", S], ["Draw", `${P}60`]].map(([l, c]) => (
               <div key={l} className="flex items-center gap-1.5">
                 <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
                 <span className="text-[11px] font-semibold text-gray-400">{l}</span>
@@ -226,7 +226,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-2">
-            {[["72", "Wins", P], ["21", "Losses", "#f87171"], ["7", "Draws", "#94a3b8"]].map(([v, l, c]) => (
+            {[["72", "Wins", P], ["21", "Losses", S], ["7", "Draws", `${P}60`]].map(([v, l, c]) => (
               <div key={l} className="flex flex-col items-center p-2 rounded-xl" style={{ backgroundColor: `${c}10` }}>
                 <span className="text-lg font-black" style={{ color: c }}>{v}</span>
                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{l}</span>
@@ -249,11 +249,11 @@ export default function DashboardPage() {
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="teams" fill={P} radius={[6, 6, 0, 0]} name="Teams" maxBarSize={28} />
               <Bar dataKey="matches" fill={`${P}60`} radius={[6, 6, 0, 0]} name="Matches" maxBarSize={28} />
-              <Bar dataKey="players" fill="#e2e8f0" radius={[6, 6, 0, 0]} name="Players" maxBarSize={28} />
+              <Bar dataKey="players" fill={S} radius={[6, 6, 0, 0]} name="Players" maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
           <div className="flex items-center gap-5 mt-3">
-            {[["Teams", P], ["Matches", `${P}60`], ["Players", "#e2e8f0"]].map(([l, c]) => (
+            {[["Teams", P], ["Matches", `${P}60`], ["Players", S]].map(([l, c]) => (
               <div key={l} className="flex items-center gap-1.5">
                 <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
                 <span className="text-[11px] font-semibold text-gray-400">{l}</span>
@@ -307,12 +307,12 @@ export default function DashboardPage() {
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="avg" fill="url(#gScore)" stroke="none" />
               <Line type="monotone" dataKey="avg" stroke={P} strokeWidth={2.5} dot={{ fill: P, r: 4, strokeWidth: 0 }} name="Avg" activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="high" stroke="#10b981" strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="High" />
-              <Line type="monotone" dataKey="low" stroke="#f87171" strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="Low" />
+              <Line type="monotone" dataKey="high" stroke={S} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="High" />
+              <Line type="monotone" dataKey="low" stroke={`${P}60`} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="Low" />
             </ComposedChart>
           </ResponsiveContainer>
           <div className="flex items-center gap-4 mt-3">
-            {[["Avg", P], ["High", "#10b981"], ["Low", "#f87171"]].map(([l, c]) => (
+            {[["Avg", P], ["High", S], ["Low", `${P}60`]].map(([l, c]) => (
               <div key={l} className="flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c }} />
                 <span className="text-[11px] font-semibold text-gray-400">{l}</span>

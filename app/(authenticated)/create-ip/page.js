@@ -80,6 +80,10 @@ export default function CreateIPPage() {
           : [];
       setSports(arr);
 
+      // Set first sport as default if not already set and sports exist
+      if (arr.length > 0 && !editingId && formData.sport_id === 1) {
+        setFormData(prev => ({ ...prev, sport_id: arr[0].id }));
+      }
     }
   };
 
@@ -242,8 +246,9 @@ export default function CreateIPPage() {
   const resetForm = () => {
     setEditingId(null);
     setIpOwners([]);
+    const defaultSportId = sports.length > 0 ? sports[0].id : 1;
     setFormData({
-      name: "", sport_id: 1, code: "",
+      name: "", sport_id: defaultSportId, code: "",
       primary_color: theme.primary_color || "#000000",
       secondary_color: theme.secondary_color || "#f4f4f5",
       logo: null, logoPreview: null, adminName: "", adminemail: "",
@@ -547,7 +552,15 @@ export default function CreateIPPage() {
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={!formData.name.trim() || !formData.code.trim() || formData.name.trim().length < 3 || formData.code.trim().length < 3}
+                    disabled={
+                      !formData.name.trim() ||
+                      !formData.code.trim() ||
+                      formData.name.trim().length < 3 ||
+                      formData.code.trim().length < 3 ||
+                      !formData.sport_id ||
+                      !formData.primary_color ||
+                      !formData.secondary_color
+                    }
                   >
                     Continue to Admin Setup
                   </Button>

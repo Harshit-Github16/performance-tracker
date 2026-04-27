@@ -125,10 +125,28 @@ export default function RolesPermissionsPage() {
         });
     };
 
-    const toggleCode = (id) => {
+    const toggleCode = (id, permCode) => {
         setSelectedCodes(prev => {
             const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
+            const isChecking = !next.has(id);
+
+            if (isChecking) {
+                next.add(id);
+
+                // If this is a "viewall" permission, auto-select all other permissions in the same module
+                if (permCode && permCode.endsWith(":viewall")) {
+                    const moduleName = permCode.split(":")[0];
+                    // Find all permissions for this module and add them
+                    permModules.forEach(mod => {
+                        if (mod.module === moduleName) {
+                            mod.permissions.forEach(p => next.add(p.id));
+                        }
+                    });
+                }
+            } else {
+                next.delete(id);
+            }
+
             return next;
         });
     };
@@ -378,7 +396,7 @@ export default function RolesPermissionsPage() {
                                                                     return (
                                                                         <label key={perm.id} className="flex items-center gap-2 cursor-pointer group">
                                                                             <div
-                                                                                onClick={() => toggleCode(perm.id)}
+                                                                                onClick={() => toggleCode(perm.id, perm.code)}
                                                                                 className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${checked ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
                                                                             >
                                                                                 {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
