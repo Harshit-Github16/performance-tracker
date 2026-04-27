@@ -109,7 +109,11 @@ export default function RolesPermissionsPage() {
                     fetchPermissions(new Set());
                 } else if (newView === "edit" && role) {
                     setRoleName(role.name || "");
-                    setRoleStatus(role.status || "Active");
+                    // Check is_active field (boolean) first, then fall back to status (string)
+                    const isActive = role.is_active !== undefined
+                        ? role.is_active
+                        : (role.status === "Active" || role.status === null || role.status === undefined);
+                    setRoleStatus(isActive ? "Active" : "Inactive");
                     // role_permissions array se permission_id extract karo
                     const existingIds = new Set(
                         (role.role_permissions || []).map(rp => rp.permission_id)
