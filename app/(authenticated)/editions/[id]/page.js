@@ -6,9 +6,10 @@ import { toast } from "sonner";
 import gsap from "gsap";
 import { Button, DataTable, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 
-const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Edit Details"];
+const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Edit Details"];
 
 // Matches loaded from API now
 
@@ -37,6 +38,7 @@ export default function EditionDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const { theme } = useTheme();
+    const { user } = useAuth();
 
     const [activeTab, setActiveTab] = useState("Matches");
     const [edition, setEdition] = useState(null);
@@ -79,15 +81,33 @@ export default function EditionDetailPage() {
     const [sponsorForm, setSponsorForm] = useState({ brand_name: "", sponsor_type: "TITLE", contract_value: "" });
     const sponsorModalRef = useRef(null);
 
+    // Metrics state
+    const [metricTree, setMetricTree] = useState(null);
+    const [metricsFormData, setMetricsFormData] = useState({});
+    const [isSavingMetrics, setIsSavingMetrics] = useState(false);
+    const [userPermissions, setUserPermissions] = useState([]);
+    const [isIpOwner, setIsIpOwner] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
+
     useEffect(() => {
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
         gsap.fromTo(contentRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.1 });
+
+        // Load user permissions
+        const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+        setUserPermissions(perms);
+
+        // Check if user is IP Owner
+        const ipOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+        setIsIpOwner(ipOwner);
+
         fetchEdition();
         fetchMatches();
         fetchTeams();
         fetchPlayers();
         fetchSponsorships();
+        fetchMetricTree();
     }, [id]);
 
     const fetchEdition = async () => {
@@ -150,6 +170,137 @@ export default function EditionDetailPage() {
             setSponsorships(Array.isArray(arr) ? arr : []);
         }
         setSponsorshipsLoading(false);
+    };
+
+    const fetchMetricTree = async () => {
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        if (!activeIp) return;
+
+        // Try to load from localStorage first
+        const metricTrees = localStorage.getItem("metric_trees");
+        if (metricTrees) {
+            const trees = JSON.parse(metricTrees);
+            const tree = trees[activeIp.id];
+            if (tree) {
+                const treeData = tree.tree || tree;
+                setMetricTree(treeData);
+                initializeMetricsFormData(treeData);
+                return;
+            }
+        }
+
+        // Fetch from API if not in localStorage
+        const sportId = activeIp.sport_id || activeIp.sport?.id;
+        if (!sportId) return;
+
+        const result = await apiClient.get(
+            `${process.env.NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT}/get-tree/${sportId}`
+        );
+        if (result.success) {
+            const treeData = result.data?.data || result.data;
+            if (Array.isArray(treeData)) {
+                setMetricTree(treeData);
+                initializeMetricsFormData(treeData);
+            }
+        }
+    };
+
+    const initializeMetricsFormData = (tree) => {
+        const initialData = {};
+        if (Array.isArray(tree)) {
+            tree.forEach(category => {
+                if (Array.isArray(category.metric_definitions)) {
+                    category.metric_definitions.forEach(def => {
+                        initialData[def.key_name] = getDefaultMetricValue(def.data_type);
+                    });
+                }
+            });
+        }
+        setMetricsFormData(initialData);
+    };
+
+    const getDefaultMetricValue = (dataType) => {
+        switch (dataType) {
+            case "integer":
+            case "float":
+                return "";
+            case "boolean":
+                return false;
+            case "string":
+            default:
+                return "";
+        }
+    };
+
+    const hasPermission = (permission) => {
+        // Super admin has all permissions
+        if (user?.role === "super_admin") return true;
+        // IP Owner has all permissions
+        if (isIpOwner) return true;
+        return userPermissions.includes(permission);
+    };
+
+    const canEditMetricField = () => {
+        // Super admin can edit everything
+        if (user?.role === "super_admin") return true;
+        // IP Owner can edit everything
+        if (isIpOwner) return true;
+        return hasPermission("data_entry:add") || hasPermission("data_entry:edit");
+    };
+
+    const handleMetricInputChange = (keyName, value, dataType) => {
+        let processedValue = value;
+        if (dataType === "integer") {
+            processedValue = value === "" ? "" : parseInt(value) || 0;
+        } else if (dataType === "float") {
+            processedValue = value === "" ? "" : parseFloat(value) || 0;
+        } else if (dataType === "boolean") {
+            processedValue = value;
+        }
+        setMetricsFormData(prev => ({ ...prev, [keyName]: processedValue }));
+        if (fieldErrors[keyName]) {
+            setFieldErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[keyName];
+                return newErrors;
+            });
+        }
+    };
+
+    const handleMetricsSubmit = async (e) => {
+        e.preventDefault();
+        const errors = {};
+        let hasError = false;
+
+        if (metricTree && Array.isArray(metricTree)) {
+            metricTree.forEach(category => {
+                if (Array.isArray(category.metric_definitions)) {
+                    category.metric_definitions.forEach(def => {
+                        if (def.is_required && (metricsFormData[def.key_name] === "" || metricsFormData[def.key_name] === null || metricsFormData[def.key_name] === undefined)) {
+                            errors[def.key_name] = `${def.label} is required`;
+                            hasError = true;
+                        }
+                    });
+                }
+            });
+        }
+
+        if (hasError) {
+            setFieldErrors(errors);
+            toast.error("Please fill all required fields");
+            return;
+        }
+
+        setIsSavingMetrics(true);
+        console.log("Metrics Data to Submit:", metricsFormData);
+
+        // Simulate API call
+        setTimeout(() => {
+            toast.success("Metrics saved successfully!", {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+            setIsSavingMetrics(false);
+        }, 1000);
     };
 
     const openSponsorModal = (sponsor = null) => {
@@ -426,6 +577,38 @@ export default function EditionDetailPage() {
     const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
     const fmtTime = (d) => d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
 
+    // Calculate match status based on timestamps
+    const getMatchStatus = (match) => {
+        const now = new Date();
+
+        // If match has ended (actual_end_time exists and is in the past)
+        if (match.actual_end_time) {
+            const endTime = new Date(match.actual_end_time);
+            if (endTime <= now) {
+                return "completed";
+            }
+        }
+
+        // If match has started but not ended (actual_start_time exists but no actual_end_time)
+        if (match.actual_start_time && !match.actual_end_time) {
+            const startTime = new Date(match.actual_start_time);
+            if (startTime <= now) {
+                return "live";
+            }
+        }
+
+        // If scheduled_at is in the future
+        if (match.scheduled_at) {
+            const scheduledTime = new Date(match.scheduled_at);
+            if (scheduledTime > now) {
+                return "upcoming";
+            }
+        }
+
+        // Default to upcoming
+        return "upcoming";
+    };
+
     return (
         <div ref={pageRef} className="space-y-6 opacity-0">
             {/* Header + Tabs */}
@@ -459,8 +642,24 @@ export default function EditionDetailPage() {
                 {activeTab === "Matches" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
-                            <Button onClick={() => openMatchModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Match</Button>
+                            <Button
+                                onClick={() => openMatchModal()}
+                                icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
+                                disabled={teams.length < 2}
+                            >
+                                Add Match
+                            </Button>
                         </div>
+                        {teams.length < 2 && (
+                            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 flex items-center gap-3">
+                                <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <p className="text-xs font-semibold text-amber-700">
+                                    You need at least 2 teams to create a match. Please add teams first.
+                                </p>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                             {matches.length === 0 ? (
                                 <div className="col-span-3 flex flex-col items-center justify-center py-24 text-gray-300">
@@ -476,6 +675,10 @@ export default function EditionDetailPage() {
                                 const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
                                 const t1Short = (typeof t1 === "object" ? t1?.short_name : null) || String(t1Name).slice(0, 2).toUpperCase();
                                 const t2Short = (typeof t2 === "object" ? t2?.short_name : null) || String(t2Name).slice(0, 2).toUpperCase();
+
+                                // Calculate actual status based on timestamps
+                                const matchStatus = getMatchStatus(match);
+
                                 return (
                                     <div key={match.id} className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200">
                                         {/* Header with gradient */}
@@ -484,9 +687,9 @@ export default function EditionDetailPage() {
                                                 <span className="text-xs font-bold text-gray-500 uppercase tracking-[0.15em]">{match.round}</span>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-semibold text-gray-400">#{match.match_no}</span>
-                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${matchStatusStyle[match.status] || matchStatusStyle.upcoming}`}>
-                                                        {match.status === "live" && <span className="relative flex h-1.5 w-1.5 mr-0.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" /></span>}
-                                                        {match.status || "upcoming"}
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${matchStatusStyle[matchStatus] || matchStatusStyle.upcoming}`}>
+                                                        {matchStatus === "live" && <span className="relative flex h-1.5 w-1.5 mr-0.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" /></span>}
+                                                        {matchStatus}
                                                     </span>
                                                 </div>
                                             </div>
@@ -722,6 +925,136 @@ export default function EditionDetailPage() {
                                     </div>
                                 )}
                             </>
+                        )}
+                    </div>
+                )}
+
+                {/* METRICS */}
+                {activeTab === "Metrics" && (
+                    <div className="space-y-6">
+                        {!metricTree ? (
+                            <div className="flex items-center justify-center py-24">
+                                <div className="flex flex-col items-center gap-3 text-gray-300">
+                                    <svg className="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                    <span className="text-xs font-bold uppercase tracking-widest">Loading Metrics...</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleMetricsSubmit} className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-8 space-y-8">
+                                {Array.isArray(metricTree) && metricTree.map((category, catIndex) => {
+                                    if (!Array.isArray(category.metric_definitions) || category.metric_definitions.length === 0) {
+                                        return null;
+                                    }
+
+                                    return (
+                                        <div key={catIndex} className="space-y-5">
+                                            <div className="pb-3 border-b border-gray-100">
+                                                <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest flex items-center gap-2">
+                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary_color }} />
+                                                    {category.name}
+                                                </h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 ml-4">
+                                                {category.metric_definitions.map(definition => {
+                                                    const { key_name, label, data_type, is_required } = definition;
+                                                    const isDisabled = !canEditMetricField();
+
+                                                    if (data_type === "boolean") {
+                                                        return (
+                                                            <div key={key_name} className="flex flex-col space-y-2 relative">
+                                                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                                                                    {label} {is_required && !isDisabled && <span className="text-red-400">*</span>}
+                                                                </label>
+                                                                <div className={`flex items-center h-[52px] px-5 bg-gray-50 border border-gray-100 rounded-xl ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+                                                                    <label className={`flex items-center gap-3 ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"} group/check`}>
+                                                                        <div
+                                                                            onClick={() => !isDisabled && handleMetricInputChange(key_name, !metricsFormData[key_name], data_type)}
+                                                                            className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${metricsFormData[key_name] ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
+                                                                        >
+                                                                            {metricsFormData[key_name] && (
+                                                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                                </svg>
+                                                                            )}
+                                                                        </div>
+                                                                        <span className={`text-sm font-semibold text-gray-600 ${!isDisabled && "group-hover/check:text-gray-950"} transition-colors`}>
+                                                                            {metricsFormData[key_name] ? "Yes" : "No"}
+                                                                        </span>
+                                                                    </label>
+                                                                </div>
+                                                                {isDisabled && (
+                                                                    <div className="absolute top-0 right-0 mt-1 mr-1">
+                                                                        <div className="bg-red-50 border border-red-100 rounded-lg px-2 py-1 flex items-center gap-1">
+                                                                            <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                                            </svg>
+                                                                            <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">No Access</span>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {fieldErrors[key_name] && (
+                                                                    <p className="text-xs text-red-500 font-semibold px-1">{fieldErrors[key_name]}</p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div key={key_name} className="relative">
+                                                            <Input
+                                                                label={label}
+                                                                type={data_type === "integer" || data_type === "float" ? "number" : "text"}
+                                                                step={data_type === "float" ? "0.01" : data_type === "integer" ? "1" : undefined}
+                                                                placeholder={`Enter ${label.toLowerCase()}`}
+                                                                required={is_required && !isDisabled}
+                                                                value={metricsFormData[key_name] || ""}
+                                                                onChange={(e) => handleMetricInputChange(key_name, e.target.value, data_type)}
+                                                                disabled={isDisabled}
+                                                                className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+                                                            />
+                                                            {isDisabled && (
+                                                                <div className="absolute top-0 right-0 mt-1 mr-1">
+                                                                    <div className="bg-red-50 border border-red-100 rounded-lg px-2 py-1 flex items-center gap-1">
+                                                                        <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                                        </svg>
+                                                                        <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">No Access</span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {fieldErrors[key_name] && (
+                                                                <p className="text-xs text-red-500 font-semibold px-1 mt-1">{fieldErrors[key_name]}</p>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="pt-4 flex justify-end items-center gap-3">
+                                    {!hasPermission("data_entry:add") && (
+                                        <div className="flex items-center gap-2 text-red-400 text-xs font-bold uppercase tracking-widest">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            </svg>
+                                            No Permission to Save
+                                        </div>
+                                    )}
+                                    <Button
+                                        type="submit"
+                                        disabled={isSavingMetrics || !hasPermission("data_entry:add")}
+                                        className="min-w-[200px]"
+                                    >
+                                        {isSavingMetrics ? "SAVING..." : "SAVE METRICS"}
+                                    </Button>
+                                </div>
+                            </form>
                         )}
                     </div>
                 )}
