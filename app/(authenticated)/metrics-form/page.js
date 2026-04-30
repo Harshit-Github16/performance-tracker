@@ -8,7 +8,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
-export default function MatricsFormPage() {
+export default function metricsFormPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
     const router = useRouter();
@@ -27,12 +27,12 @@ export default function MatricsFormPage() {
     const formRef = useRef(null);
 
     useEffect(() => {
-        // Super admin should not access matrics-form page UNLESS they entered as manager
+        // Super admin should not access metrics-form page UNLESS they entered as manager
         const enteredAsManager = localStorage.getItem("entered_as_manager") === "true";
 
         if (user && user.role === "super_admin" && !enteredAsManager) {
             // Super admin in normal mode - redirect to category management
-            router.push("/matrics");
+            router.push("/metrics");
             return;
         }
     }, [user, router]);

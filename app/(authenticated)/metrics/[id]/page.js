@@ -3,14 +3,15 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import gsap from "gsap";
-import { Button, DataTable, Input } from "@/components/UI";
+import { Button, Input } from "@/components/UI";
+import { ServerPaginatedTable } from "@/components/ServerPaginatedTable";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 
-const DATA_TYPES = ["integer", "float", "string", "boolean"];
-const TARGET_LEVELS = ["match", "innings", "over", "player", "team"];
+const DATA_TYPES = ['integer', 'decimal', 'string'];
+const TARGET_LEVELS = ['edition', 'match', 'daily'];
 
 export default function MetricDefinitionsPage() {
     const { theme } = useTheme();
@@ -36,7 +37,7 @@ export default function MetricDefinitionsPage() {
     };
     const [formData, setFormData] = useState(defaultForm);
 
-    const [filterTargetLevel, setFilterTargetLevel] = useState("");
+
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -86,7 +87,7 @@ export default function MetricDefinitionsPage() {
     const fetchDefinitions = useCallback(async () => {
         setTableLoading(true);
         const params = new URLSearchParams({ page, limit: 10, category_id: categoryId });
-        if (filterTargetLevel) params.set("target_level", filterTargetLevel);
+
         if (search) params.set("search", search);
 
         const result = await apiClient.get(`${process.env.NEXT_PUBLIC_METRIC_DEFINITIONS_ENDPOINT}?${params.toString()}`);
@@ -97,13 +98,17 @@ export default function MetricDefinitionsPage() {
                 : Array.isArray(data) ? data
                     : [];
             setDefinitions(arr);
-            const total = data?.total_pages || data?.totalPages || 1;
-            setTotalPages(total);
+
+            // Calculate total pages from total and limit
+            const totalRecords = data?.total || 0;
+            const limitPerPage = data?.limit || 10;
+            const calculatedPages = Math.ceil(totalRecords / limitPerPage);
+            setTotalPages(calculatedPages);
         } else {
             toast.error(result.error || "Failed to load metric definitions.");
         }
         setTableLoading(false);
-    }, [categoryId, page, filterTargetLevel, search]);
+    }, [categoryId, page, search]);
 
     useEffect(() => {
         fetchDefinitions();
@@ -286,7 +291,7 @@ export default function MetricDefinitionsPage() {
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
                     <button
-                        onClick={() => router.push("/matrics")}
+                        onClick={() => router.push("/metrics")}
                         className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-gray-950 transition-colors mb-3"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -317,19 +322,7 @@ export default function MetricDefinitionsPage() {
 
             {/* Filters + Table */}
             <div ref={tableRef} className="px-4 space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative group">
-                        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-gray-950 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input
-                            type="text"
-                            placeholder="Search definitions..."
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            className="pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-xl text-sm font-medium text-gray-950 outline-none transition-all focus:border-gray-200 shadow-sm w-64"
-                        />
-                    </div>
+                {/* <div className="flex flex-wrap items-center gap-3">
                     <select
                         value={filterTargetLevel}
                         onChange={(e) => { setFilterTargetLevel(e.target.value); setPage(1); }}
@@ -340,7 +333,7 @@ export default function MetricDefinitionsPage() {
                             <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
                         ))}
                     </select>
-                </div>
+                </div> */}
 
                 {tableLoading ? (
                     <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-12 flex items-center justify-center">
@@ -353,34 +346,16 @@ export default function MetricDefinitionsPage() {
                         </div>
                     </div>
                 ) : (
-                    <DataTable
+                    <ServerPaginatedTable
                         columns={columns}
                         data={definitions}
                         emptyMessage="No metric definitions found. Click 'Add Definition' to create one."
-                        itemsPerPage={10}
+                        currentPage={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        searchValue={searchInput}
+                        onSearchChange={setSearchInput}
                     />
-                )}
-
-                {!tableLoading && totalPages > 1 && (
-                    <div className="flex items-center justify-between px-2">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center gap-2 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold uppercase tracking-widest"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-                            Back
-                        </button>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Page {page} of {totalPages}</span>
-                        <button
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages}
-                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center gap-2 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold uppercase tracking-widest"
-                        >
-                            Next
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
-                        </button>
-                    </div>
                 )}
             </div>
 
@@ -459,18 +434,19 @@ export default function MetricDefinitionsPage() {
                                     </select>
                                 </div>
 
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Target Level</label>
-                                    <select
-                                        value={formData.target_level}
-                                        onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
-                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                    >
-                                        {TARGET_LEVELS.map(l => (
-                                            <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            </div>
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Target Level</label>
+                                <select
+                                    value={formData.target_level}
+                                    onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
+                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                >
+                                    {TARGET_LEVELS.map(l => (
+                                        <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                    ))}
+                                </select>
+
                             </div>
 
                             <div className="flex flex-col space-y-2">

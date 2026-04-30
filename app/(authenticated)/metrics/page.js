@@ -4,12 +4,13 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import gsap from "gsap";
 import { Button, DataTable, Input } from "@/components/UI";
+import { ServerPaginatedTable } from "@/components/ServerPaginatedTable";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 
-export default function MatricsPage() {
+export default function metricsPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
     const router = useRouter();
@@ -50,14 +51,20 @@ export default function MatricsPage() {
 
         const result = await apiClient.get(`${process.env.NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT}?${params.toString()}`);
 
+        console.log('resultresultresult', result)
+
         if (result.success) {
             const data = result.data?.data;
             const arr = Array.isArray(data?.metric_categories) ? data.metric_categories
                 : Array.isArray(data) ? data
                     : [];
             setCategories(arr);
-            const total = data?.total_pages || data?.totalPages || 1;
-            setTotalPages(total);
+
+            // Calculate total pages from total and limit
+            const totalRecords = data?.total || 0;
+            const limitPerPage = data?.limit || 10;
+            const calculatedPages = Math.ceil(totalRecords / limitPerPage);
+            setTotalPages(calculatedPages);
         } else {
             toast.error(result.error || "Failed to load metric categories.");
         }
@@ -168,7 +175,7 @@ export default function MatricsPage() {
             render: (row) => (
                 <div className="flex items-center justify-end gap-2">
                     <button
-                        onClick={() => router.push(`/matrics/${row.id}`)}
+                        onClick={() => router.push(`/metrics/${row.id}`)}
                         title="View Definitions"
                         className="h-8 px-3 rounded-lg bg-gray-50 border border-gray-100 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all flex items-center gap-1.5"
                     >
@@ -225,23 +232,8 @@ export default function MatricsPage() {
                 </Button>
             </div>
 
-            {/* Search + Table */}
-            <div ref={tableRef} className="px-4 space-y-4">
-                <div className="flex items-center gap-3">
-                    <div className="relative w-full max-w-sm group">
-                        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-gray-950 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input
-                            type="text"
-                            placeholder="Search categories..."
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            className="w-full pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-xl text-sm font-medium text-gray-950 outline-none transition-all focus:border-gray-200 shadow-sm"
-                        />
-                    </div>
-                </div>
-
+            {/* Table */}
+            <div ref={tableRef} className="px-4">
                 {tableLoading ? (
                     <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-12 flex items-center justify-center">
                         <div className="flex flex-col items-center gap-3 text-gray-300">
@@ -253,34 +245,16 @@ export default function MatricsPage() {
                         </div>
                     </div>
                 ) : (
-                    <DataTable
+                    <ServerPaginatedTable
                         columns={columns}
                         data={categories}
                         emptyMessage="No metric categories found. Click 'Add Category' to create one."
-                        itemsPerPage={10}
+                        currentPage={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        searchValue={searchInput}
+                        onSearchChange={setSearchInput}
                     />
-                )}
-
-                {!tableLoading && totalPages > 1 && (
-                    <div className="flex items-center justify-between px-2">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center gap-2 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold uppercase tracking-widest"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-                            Back
-                        </button>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Page {page} of {totalPages}</span>
-                        <button
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages}
-                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center gap-2 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold uppercase tracking-widest"
-                        >
-                            Next
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
-                        </button>
-                    </div>
                 )}
             </div>
 
