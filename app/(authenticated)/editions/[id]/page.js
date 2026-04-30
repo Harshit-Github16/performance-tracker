@@ -942,9 +942,17 @@ export default function EditionDetailPage() {
                                     <span className="text-xs font-bold uppercase tracking-widest">Loading Metrics...</span>
                                 </div>
                             </div>
+                        ) : !Array.isArray(metricTree) || metricTree.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                                <svg className="w-16 h-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                </svg>
+                                <p className="text-sm font-semibold text-gray-950 mb-1">No Metrics Available</p>
+                                <p className="text-xs text-gray-400">No metric definitions have been configured for this sport yet.</p>
+                            </div>
                         ) : (
                             <form onSubmit={handleMetricsSubmit} className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-8 space-y-8">
-                                {Array.isArray(metricTree) && metricTree.map((category, catIndex) => {
+                                {metricTree.map((category, catIndex) => {
                                     if (!Array.isArray(category.metric_definitions) || category.metric_definitions.length === 0) {
                                         return null;
                                     }

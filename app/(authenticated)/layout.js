@@ -223,7 +223,7 @@ export default function DashboardLayout({ children }) {
         <div className="p-6 h-20 flex items-center border-b border-gray-100 overflow-hidden">
           <div className="flex items-center justify-center w-full px-2">
             {!isCollapsed && (
-              <span className="text-sm font-bold text-gray-950 uppercase tracking-[0.2em] whitespace-nowrap">
+              <span className="text-[12.5px] font-bold text-gray-950 uppercase tracking-[0.2em] whitespace-nowrap">
                 Performance Tracker
               </span>
             )}
