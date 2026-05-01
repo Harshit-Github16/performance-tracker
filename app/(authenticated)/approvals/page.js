@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import gsap from "gsap";
-import { Button, DataTable } from "@/components/UI";
+import { DataTable } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import apiClient from "@/lib/apiClient";
 
@@ -13,12 +13,22 @@ const STATUS_OPTIONS = [
     { value: "rejected", label: "Rejected", color: "bg-red-500" },
 ];
 
+const TABS = ["Edit Approval", "New Approval"];
+
 export default function ApprovalsPage() {
     const { theme } = useTheme();
+    const [activeTab, setActiveTab] = useState("Edit Approval");
+
+    // Edit Approval (Metric Values) state
+    const [metricValues, setMetricValues] = useState([]);
+    const [metricValuesLoading, setMetricValuesLoading] = useState(false);
+    const [isProcessingMetric, setIsProcessingMetric] = useState({});
+
+    // New Approval (Change Requests) state
     const [changeRequests, setChangeRequests] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [changeRequestsLoading, setChangeRequestsLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState("pending");
-    const [isProcessing, setIsProcessing] = useState({});
+    const [isProcessingRequest, setIsProcessingRequest] = useState({});
 
     const pageRef = useRef(null);
     const headerRef = useRef(null);
@@ -31,11 +41,31 @@ export default function ApprovalsPage() {
     }, []);
 
     useEffect(() => {
-        fetchChangeRequests();
-    }, [statusFilter]);
+        if (activeTab === "Edit Approval") {
+            fetchMetricValues();
+        } else {
+            fetchChangeRequests();
+        }
+    }, [activeTab, statusFilter]);
+
+    const fetchMetricValues = useCallback(async () => {
+        setMetricValuesLoading(true);
+        const result = await apiClient.get(
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}?is_approved=false`
+        );
+        if (result.success) {
+            const data = result.data?.data;
+            const arr = Array.isArray(data?.metric_values) ? data.metric_values
+                : Array.isArray(data) ? data : [];
+            setMetricValues(arr);
+        } else {
+            toast.error(result.error || "Failed to load metric values.");
+        }
+        setMetricValuesLoading(false);
+    }, []);
 
     const fetchChangeRequests = useCallback(async () => {
-        setLoading(true);
+        setChangeRequestsLoading(true);
         const result = await apiClient.get(
             `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/all?status=${statusFilter}`
         );
@@ -48,11 +78,49 @@ export default function ApprovalsPage() {
         } else {
             toast.error(result.error || "Failed to load change requests.");
         }
-        setLoading(false);
+        setChangeRequestsLoading(false);
     }, [statusFilter]);
 
+    const handleApproveMetricValue = async (metricValueId) => {
+        setIsProcessingMetric(prev => ({ ...prev, [metricValueId]: true }));
+
+        const result = await apiClient.post(
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${metricValueId}/approve`
+        );
+
+        if (result.success) {
+            toast.success("Metric value approved successfully!", {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+            await fetchMetricValues();
+        } else {
+            toast.error(result.error || "Failed to approve metric value.");
+        }
+
+        setIsProcessingMetric(prev => ({ ...prev, [metricValueId]: false }));
+    };
+
+    const handleRejectMetricValue = async (metricValueId) => {
+        setIsProcessingMetric(prev => ({ ...prev, [metricValueId]: true }));
+
+        const result = await apiClient.delete(
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${metricValueId}`
+        );
+
+        if (result.success) {
+            toast.success("Metric value deleted successfully!", {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+            await fetchMetricValues();
+        } else {
+            toast.error(result.error || "Failed to delete metric value.");
+        }
+
+        setIsProcessingMetric(prev => ({ ...prev, [metricValueId]: false }));
+    };
+
     const handleProcessRequest = async (requestId, status) => {
-        setIsProcessing(prev => ({ ...prev, [requestId]: true }));
+        setIsProcessingRequest(prev => ({ ...prev, [requestId]: true }));
 
         const result = await apiClient.patch(
             `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/process/${requestId}`,
@@ -68,7 +136,7 @@ export default function ApprovalsPage() {
             toast.error(result.error || `Failed to ${status} request.`);
         }
 
-        setIsProcessing(prev => ({ ...prev, [requestId]: false }));
+        setIsProcessingRequest(prev => ({ ...prev, [requestId]: false }));
     };
 
     const getStatusBadge = (status) => {
@@ -106,6 +174,16 @@ export default function ApprovalsPage() {
         });
     };
 
+    const switchTab = (tab) => {
+        gsap.to(contentRef.current, {
+            y: -8, opacity: 0, duration: 0.2, ease: "power2.in",
+            onComplete: () => {
+                setActiveTab(tab);
+                gsap.fromTo(contentRef.current, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" });
+            }
+        });
+    };
+
     return (
         <div ref={pageRef} className="space-y-6 opacity-0">
             {/* Header */}
@@ -119,19 +197,17 @@ export default function ApprovalsPage() {
                     <p className="text-[14px] text-gray-400 font-normal">Review and process change requests</p>
                 </div>
 
-                {/* Status Filter */}
-                <div className="flex items-center gap-2">
-                    {STATUS_OPTIONS.map((option) => (
+                {/* Tabs */}
+                <div className="flex items-center gap-1 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm">
+                    {TABS.map((tab) => (
                         <button
-                            key={option.value}
-                            onClick={() => setStatusFilter(option.value)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 ${statusFilter === option.value
-                                    ? "text-white shadow-md"
-                                    : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950 hover:border-gray-200"
+                            key={tab}
+                            onClick={() => switchTab(tab)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${activeTab === tab ? "text-white shadow-md" : "text-gray-400 hover:text-gray-950"
                                 }`}
-                            style={statusFilter === option.value ? { backgroundColor: theme.primary_color } : {}}
+                            style={activeTab === tab ? { backgroundColor: theme.primary_color } : {}}
                         >
-                            {option.label}
+                            {tab}
                         </button>
                     ))}
                 </div>
@@ -139,112 +215,234 @@ export default function ApprovalsPage() {
 
             {/* Content */}
             <div ref={contentRef} className="px-4">
-                {loading ? (
-                    <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
-                        ))}
-                    </div>
-                ) : (
-                    <DataTable
-                        columns={[
-                            {
-                                header: "#",
-                                accessor: "index",
-                                render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
-                            },
-                            {
-                                header: "Request ID",
-                                accessor: "id",
-                                render: (row) => (
-                                    <span className="text-sm font-bold text-gray-950">#{row.original.id}</span>
-                                )
-                            },
-                            {
-                                header: "Type",
-                                accessor: "request_type",
-                                render: (row) => (
-                                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        {row.original.request_type || "—"}
-                                    </span>
-                                )
-                            },
-                            {
-                                header: "Description",
-                                accessor: "description",
-                                render: (row) => (
-                                    <span className="text-sm text-gray-700 line-clamp-2">
-                                        {row.original.description || "No description"}
-                                    </span>
-                                )
-                            },
-                            {
-                                header: "Requested By",
-                                accessor: "requested_by",
-                                render: (row) => (
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: theme.primary_color }}>
-                                            {row.original.requested_by_name?.slice(0, 2).toUpperCase() || "??"}
-                                        </div>
-                                        <span className="text-sm font-semibold text-gray-950">
-                                            {row.original.requested_by_name || `User ${row.original.requested_by}`}
-                                        </span>
-                                    </div>
-                                )
-                            },
-                            {
-                                header: "Date",
-                                accessor: "created_at",
-                                render: (row) => (
-                                    <span className="text-xs text-gray-500 font-medium">
-                                        {formatDate(row.original.created_at || row.original.rec_created)}
-                                    </span>
-                                )
-                            },
-                            {
-                                header: "Status",
-                                accessor: "status",
-                                align: "center",
-                                render: (row) => getStatusBadge(row.original.status)
-                            },
-                            {
-                                header: "Actions",
-                                accessor: "actions",
-                                align: "center",
-                                render: (row) => {
-                                    if (row.original.status !== "pending") {
-                                        return (
-                                            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-                                                {row.original.status === "approved" ? "Approved" : "Rejected"}
-                                            </span>
-                                        );
-                                    }
+                {/* Edit Approval Tab */}
+                {activeTab === "Edit Approval" && (
+                    <div className="space-y-4">
+                        {metricValuesLoading ? (
+                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+                                ))}
+                            </div>
+                        ) : (
+                            <DataTable
+                                columns={[
+                                    {
+                                        header: "#",
+                                        accessor: "index",
+                                        render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
+                                    },
+                                    // {
+                                    //     header: "Metric",
+                                    //     accessor: "metric_definition_id",
+                                    //     render: (row) => (
+                                    //         <span className="text-sm font-semibold text-gray-950">
+                                    //             Metric #{row.original.metric_definition_id}
+                                    //         </span>
+                                    //     )
+                                    // },
 
-                                    return (
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button
-                                                onClick={() => handleProcessRequest(row.original.id, "approved")}
-                                                disabled={isProcessing[row.original.id]}
-                                                className="h-8 px-3 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isProcessing[row.original.id] ? "..." : "Approve"}
-                                            </button>
-                                            <button
-                                                onClick={() => handleProcessRequest(row.original.id, "rejected")}
-                                                disabled={isProcessing[row.original.id]}
-                                                className="h-8 px-3 rounded-xl bg-red-50 text-red-600 text-xs font-bold uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isProcessing[row.original.id] ? "..." : "Reject"}
-                                            </button>
-                                        </div>
-                                    );
-                                }
-                            }
-                        ]}
-                        data={changeRequests.map((request, idx) => ({ ...request, index: idx + 1, original: request }))}
-                        emptyMessage={`No ${statusFilter} change requests found.`}
-                        itemsPerPage={10}
-                    />
+                                    {
+                                        header: "Match",
+                                        accessor: "match_id",
+                                        render: (row) => (
+                                            <span className="text-xs text-gray-600">Match #{row.original.match_id}</span>
+                                        )
+                                    },
+                                    {
+                                        header: "Player",
+                                        accessor: "person_id",
+                                        render: (row) => (
+                                            <span className="text-xs text-gray-600">Player #{row.original.person_id}</span>
+                                        )
+                                    },
+
+                                    {
+                                        header: "Date",
+                                        accessor: "recorded_date",
+                                        render: (row) => (
+                                            <span className="text-xs text-gray-500">
+                                                {row.original.recorded_date ? new Date(row.original.recorded_date).toLocaleDateString("en-IN") : "—"}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Value",
+                                        accessor: "value_text",
+                                        render: (row) => (
+                                            <span className="text-sm font-bold text-gray-950">{row.original.value_text}</span>
+                                        )
+                                    },
+
+                                    {
+                                        header: "Actions",
+                                        accessor: "actions",
+                                        align: "center",
+                                        render: (row) => (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleApproveMetricValue(row.original.id)}
+                                                    disabled={isProcessingMetric[row.original.id]}
+                                                    className="h-8 px-3 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {isProcessingMetric[row.original.id] ? "..." : "Approve"}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleRejectMetricValue(row.original.id)}
+                                                    disabled={isProcessingMetric[row.original.id]}
+                                                    className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {isProcessingMetric[row.original.id] ? (
+                                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )
+                                    }
+                                ]}
+                                data={metricValues.map((mv, idx) => ({ ...mv, index: idx + 1, original: mv }))}
+                                emptyMessage="No pending metric values found."
+                                itemsPerPage={10}
+                            />
+                        )}
+                    </div>
+                )}
+
+                {/* New Approval Tab */}
+                {activeTab === "New Approval" && (
+                    <div className="space-y-4">
+                        {/* Status Filter */}
+                        <div className="flex items-center gap-2">
+                            {STATUS_OPTIONS.map((option) => (
+                                <button
+                                    key={option.value}
+                                    onClick={() => setStatusFilter(option.value)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 ${statusFilter === option.value
+                                        ? "text-white shadow-md"
+                                        : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950 hover:border-gray-200"
+                                        }`}
+                                    style={statusFilter === option.value ? { backgroundColor: theme.primary_color } : {}}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {changeRequestsLoading ? (
+                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+                                ))}
+                            </div>
+                        ) : (
+                            <DataTable
+                                columns={[
+                                    {
+                                        header: "#",
+                                        accessor: "index",
+                                        render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
+                                    },
+                                    {
+                                        header: "Request ID",
+                                        accessor: "id",
+                                        render: (row) => (
+                                            <span className="text-sm font-bold text-gray-950">#{row.original.id}</span>
+                                        )
+                                    },
+                                    {
+                                        header: "Type",
+                                        accessor: "request_type",
+                                        render: (row) => (
+                                            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                                {row.original.request_type || "—"}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Description",
+                                        accessor: "description",
+                                        render: (row) => (
+                                            <span className="text-sm text-gray-700 line-clamp-2">
+                                                {row.original.description || "No description"}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Requested By",
+                                        accessor: "requested_by",
+                                        render: (row) => (
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: theme.primary_color }}>
+                                                    {row.original.requested_by_name?.slice(0, 2).toUpperCase() || "??"}
+                                                </div>
+                                                <span className="text-sm font-semibold text-gray-950">
+                                                    {row.original.requested_by_name || `User ${row.original.requested_by}`}
+                                                </span>
+                                            </div>
+                                        )
+                                    },
+                                    {
+                                        header: "Date",
+                                        accessor: "created_at",
+                                        render: (row) => (
+                                            <span className="text-xs text-gray-500 font-medium">
+                                                {formatDate(row.original.created_at || row.original.rec_created)}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Status",
+                                        accessor: "status",
+                                        align: "center",
+                                        render: (row) => getStatusBadge(row.original.status)
+                                    },
+                                    {
+                                        header: "Actions",
+                                        accessor: "actions",
+                                        align: "center",
+                                        render: (row) => {
+                                            if (row.original.status !== "pending") {
+                                                return (
+                                                    <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                                                        {row.original.status === "approved" ? "Approved" : "Rejected"}
+                                                    </span>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => handleProcessRequest(row.original.id, "approved")}
+                                                        disabled={isProcessingRequest[row.original.id]}
+                                                        className="h-8 px-3 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {isProcessingRequest[row.original.id] ? "..." : "Approve"}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleProcessRequest(row.original.id, "rejected")}
+                                                        disabled={isProcessingRequest[row.original.id]}
+                                                        className="h-8 px-3 rounded-xl bg-red-50 text-red-600 text-xs font-bold uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {isProcessingRequest[row.original.id] ? "..." : "Reject"}
+                                                    </button>
+                                                </div>
+                                            );
+                                        }
+                                    }
+                                ]}
+                                data={changeRequests.map((request, idx) => ({ ...request, index: idx + 1, original: request }))}
+                                emptyMessage={`No ${statusFilter} change requests found.`}
+                                itemsPerPage={10}
+                            />
+                        )}
+                    </div>
                 )}
             </div>
         </div>
