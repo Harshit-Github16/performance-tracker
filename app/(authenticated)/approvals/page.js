@@ -50,44 +50,7 @@ export default function ApprovalsPage() {
         setLoading(false);
     }, [statusFilter]);
 
-    const handleProcessRequest = async (requestId, status) => {
-        setIsProcessing(prev => ({ ...prev, [requestId]: true }));
 
-        const result = await apiClient.post(
-            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/process/${requestId}`,
-            { status }
-        );
-
-        if (result.success) {
-            toast.success(`Request ${status} successfully!`, {
-                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
-            });
-            await fetchChangeRequests();
-        } else {
-            toast.error(result.error || `Failed to ${status} request.`);
-        }
-
-        setIsProcessing(prev => ({ ...prev, [requestId]: false }));
-    };
-
-    const handleDeleteRequest = async (requestId) => {
-        setIsProcessing(prev => ({ ...prev, [requestId]: true }));
-
-        const result = await apiClient.delete(
-            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/${requestId}`
-        );
-
-        if (result.success) {
-            toast.success("Request deleted successfully!", {
-                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
-            });
-            await fetchChangeRequests();
-        } else {
-            toast.error(result.error || "Failed to delete request.");
-        }
-
-        setIsProcessing(prev => ({ ...prev, [requestId]: false }));
-    };
 
     const getStatusBadge = (status) => {
         const statusConfig = STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
@@ -218,58 +181,7 @@ export default function ApprovalsPage() {
                                 align: "center",
                                 render: (row) => getStatusBadge(row.original.status)
                             },
-                            {
-                                header: "Actions",
-                                accessor: "actions",
-                                align: "center",
-                                render: (row) => {
-                                    if (row.original.status !== "pending") {
-                                        return (
-                                            <div className="flex items-center justify-center gap-2">
-                                                <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-                                                    {row.original.status === "approved" ? "Approved" : "Rejected"}
-                                                </span>
-                                                <button
-                                                    onClick={() => handleDeleteRequest(row.original.id)}
-                                                    disabled={isProcessing[row.original.id]}
-                                                    className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    {isProcessing[row.original.id] ? (
-                                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                            </div>
-                                        );
-                                    }
 
-                                    return (
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button
-                                                onClick={() => handleProcessRequest(row.original.id, "approved")}
-                                                disabled={isProcessing[row.original.id]}
-                                                className="h-8 px-3 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isProcessing[row.original.id] ? "..." : "Approve"}
-                                            </button>
-                                            <button
-                                                onClick={() => handleProcessRequest(row.original.id, "rejected")}
-                                                disabled={isProcessing[row.original.id]}
-                                                className="h-8 px-3 rounded-xl bg-red-50 text-red-600 text-xs font-bold uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isProcessing[row.original.id] ? "..." : "Reject"}
-                                            </button>
-
-                                        </div>
-                                    );
-                                }
-                            }
                         ]}
                         data={changeRequests.map((request, idx) => ({ ...request, index: idx + 1, original: request }))}
                         emptyMessage={`No ${statusFilter} change requests found.`}
