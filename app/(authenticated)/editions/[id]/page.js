@@ -1120,10 +1120,7 @@ export default function EditionDetailPage() {
                                             accessor: "brand_name",
                                             render: (row) => (
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
-                                                        style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
-                                                        {row.brand_name?.slice(0, 2).toUpperCase()}
-                                                    </div>
+
                                                     <span className="text-sm font-bold text-gray-950">{row.brand_name}</span>
                                                 </div>
                                             )
@@ -1321,40 +1318,7 @@ export default function EditionDetailPage() {
                 {/* STATS */}
                 {activeTab === "Stats" && (
                     <div className="space-y-4">
-                        {/* Filters */}
-                        <div className="flex gap-3">
-                            <div className="flex-1">
-                                <select
-                                    value={statsFilters.match_id}
-                                    onChange={(e) => setStatsFilters({ ...statsFilters, match_id: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:border-gray-950 transition-all"
-                                >
-                                    <option value="">All Matches</option>
-                                    {matches.map(match => {
-                                        const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
-                                        const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
-                                        const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
-                                        const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
-                                        return (
-                                            <option key={match.id} value={match.id}>
-                                                Match #{match.match_no} - {t1Name} vs {t2Name}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-                            <div className="flex-1">
-                                <select
-                                    value={statsFilters.is_approved}
-                                    onChange={(e) => setStatsFilters({ ...statsFilters, is_approved: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:border-gray-950 transition-all"
-                                >
-                                    <option value="">All Status</option>
-                                    <option value="true">Approved</option>
-                                    <option value="false">Pending</option>
-                                </select>
-                            </div>
-                        </div>
+
 
                         {statsLoading ? (
                             <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
