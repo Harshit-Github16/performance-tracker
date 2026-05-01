@@ -91,6 +91,8 @@ export default function EditionDetailPage() {
     const [fieldErrors, setFieldErrors] = useState({});
     const [selectedMatchId, setSelectedMatchId] = useState("");
     const [selectedPersonId, setSelectedPersonId] = useState("");
+    const [activeMetricCategory, setActiveMetricCategory] = useState(0);
+    const [metricRowData, setMetricRowData] = useState({}); // { definitionId: { match_id, person_id, value } }
 
     // Stats state
     const [metricValues, setMetricValues] = useState([]);
@@ -106,6 +108,9 @@ export default function EditionDetailPage() {
     const [editingMetricValueId, setEditingMetricValueId] = useState(null);
     const [editMetricValueForm, setEditMetricValueForm] = useState({ value_text: "" });
     const editMetricValueModalRef = useRef(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deletingMetricValueId, setDeletingMetricValueId] = useState(null);
+    const deleteModalRef = useRef(null);
 
     useEffect(() => {
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
@@ -292,6 +297,66 @@ export default function EditionDetailPage() {
         }
     };
 
+    const handleSubmitMetricRow = async (definitionId) => {
+        const rowData = metricRowData[definitionId];
+
+        if (!rowData) {
+            toast.error("Please fill all fields");
+            return;
+        }
+
+        if (!rowData.match_id) {
+            toast.error("Please select a match");
+            return;
+        }
+
+        if (!rowData.person_id) {
+            toast.error("Please select a player");
+            return;
+        }
+
+        if (!rowData.value && rowData.value !== 0 && rowData.value !== false) {
+            toast.error("Please enter a value");
+            return;
+        }
+
+        const currentDate = new Date().toISOString().split('T')[0];
+        const payload = {
+            metric_definition_id: definitionId,
+            edition_id: Number(id),
+            match_id: Number(rowData.match_id),
+            person_id: Number(rowData.person_id),
+            recorded_date: currentDate,
+            value_text: String(rowData.value)
+        };
+
+        const result = await apiClient.post(process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT, payload);
+
+        if (result.success) {
+            toast.success("Metric saved successfully!", {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+            // Clear the row data
+            setMetricRowData(prev => {
+                const newData = { ...prev };
+                delete newData[definitionId];
+                return newData;
+            });
+        } else {
+            toast.error(result.error || "Failed to save metric.");
+        }
+    };
+
+    const updateMetricRowData = (definitionId, field, value) => {
+        setMetricRowData(prev => ({
+            ...prev,
+            [definitionId]: {
+                ...prev[definitionId],
+                [field]: value
+            }
+        }));
+    };
+
     const handleMetricsSubmit = async (e) => {
         e.preventDefault();
         const errors = {};
@@ -451,8 +516,6 @@ export default function EditionDetailPage() {
     };
 
     const handleDeleteMetricValue = async (metricValueId) => {
-        if (!confirm("Are you sure you want to delete this metric value?")) return;
-
         const result = await apiClient.delete(
             `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${metricValueId}`
         );
@@ -462,9 +525,29 @@ export default function EditionDetailPage() {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
             await fetchMetricValues();
+            closeDeleteModal();
         } else {
             toast.error(result.error || "Failed to delete metric value.");
         }
+    };
+
+    const openDeleteModal = (metricValueId) => {
+        setDeletingMetricValueId(metricValueId);
+        setIsDeleteModalOpen(true);
+        requestAnimationFrame(() => {
+            if (deleteModalRef.current)
+                gsap.fromTo(deleteModalRef.current, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" });
+        });
+    };
+
+    const closeDeleteModal = () => {
+        gsap.to(deleteModalRef.current, {
+            scale: 0.95, opacity: 0, duration: 0.2, ease: "power2.in",
+            onComplete: () => {
+                setIsDeleteModalOpen(false);
+                setDeletingMetricValueId(null);
+            },
+        });
     };
 
     const openSponsorModal = (sponsor = null) => {
@@ -1115,167 +1198,117 @@ export default function EditionDetailPage() {
                                 <p className="text-xs text-gray-400">No metric definitions have been configured for this sport yet.</p>
                             </div>
                         ) : (
-                            <form onSubmit={handleMetricsSubmit} className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-8 space-y-8">
-                                {/* Match and Player Selection */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-6 border-b border-gray-100">
-                                    {/* Match Dropdown */}
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
-                                            Select Match <span className="text-red-400">*</span>
-                                        </label>
-                                        <select
-                                            required
-                                            value={selectedMatchId}
-                                            onChange={(e) => setSelectedMatchId(e.target.value)}
-                                            className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                            <div className="space-y-6">
+                                {/* Category Tabs */}
+                                <div className="flex items-center gap-2 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm overflow-x-auto">
+                                    {metricTree.map((category, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setActiveMetricCategory(idx)}
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${activeMetricCategory === idx ? "text-white shadow-md" : "text-gray-400 hover:text-gray-950"
+                                                }`}
+                                            style={activeMetricCategory === idx ? { backgroundColor: theme.primary_color } : {}}
                                         >
-                                            <option value="">Choose a match</option>
-                                            {matches.map(match => {
-                                                const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
-                                                const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
-                                                const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
-                                                const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
-                                                return (
-                                                    <option key={match.id} value={match.id}>
-                                                        Match #{match.match_no} - {t1Name} vs {t2Name} ({match.round})
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
-                                    </div>
-
-                                    {/* Player Dropdown */}
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
-                                            Select Player <span className="text-red-400">*</span>
-                                        </label>
-                                        <select
-                                            required
-                                            value={selectedPersonId}
-                                            onChange={(e) => setSelectedPersonId(e.target.value)}
-                                            className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                        >
-                                            <option value="">Choose a player</option>
-                                            {players.filter(p => p.role === "PLAYER").map(player => (
-                                                <option key={player.id} value={player.id}>
-                                                    {player.full_name} {player.external_id ? `(${player.external_id})` : ""}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                            {category.name}
+                                        </button>
+                                    ))}
                                 </div>
 
-                                {metricTree.map((category, catIndex) => {
-                                    if (!Array.isArray(category.metric_definitions) || category.metric_definitions.length === 0) {
-                                        return null;
-                                    }
-
-                                    return (
-                                        <div key={catIndex} className="space-y-5">
-                                            <div className="pb-3 border-b border-gray-100">
-                                                <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest flex items-center gap-2">
-                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary_color }} />
-                                                    {category.name}
-                                                </h3>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 ml-4">
-                                                {category.metric_definitions.map(definition => {
-                                                    const { key_name, label, data_type, is_required } = definition;
-                                                    const isDisabled = !canEditMetricField();
-
-                                                    if (data_type === "boolean") {
-                                                        return (
-                                                            <div key={key_name} className="flex flex-col space-y-2 relative">
-                                                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
-                                                                    {label} {is_required && !isDisabled && <span className="text-red-400">*</span>}
-                                                                </label>
-                                                                <div className={`flex items-center h-[52px] px-5 bg-gray-50 border border-gray-100 rounded-xl ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}>
-                                                                    <label className={`flex items-center gap-3 ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"} group/check`}>
-                                                                        <div
-                                                                            onClick={() => !isDisabled && handleMetricInputChange(key_name, !metricsFormData[key_name], data_type)}
-                                                                            className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${metricsFormData[key_name] ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
-                                                                        >
-                                                                            {metricsFormData[key_name] && (
-                                                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                            )}
-                                                                        </div>
-                                                                        <span className={`text-sm font-semibold text-gray-600 ${!isDisabled && "group-hover/check:text-gray-950"} transition-colors`}>
-                                                                            {metricsFormData[key_name] ? "Yes" : "No"}
-                                                                        </span>
-                                                                    </label>
-                                                                </div>
-                                                                {isDisabled && (
-                                                                    <div className="absolute top-0 right-0 mt-1 mr-1">
-                                                                        <div className="bg-red-50 border border-red-100 rounded-lg px-2 py-1 flex items-center gap-1">
-                                                                            <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                                                            </svg>
-                                                                            <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">No Access</span>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                                {fieldErrors[key_name] && (
-                                                                    <p className="text-xs text-red-500 font-semibold px-1">{fieldErrors[key_name]}</p>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    }
-
+                                {/* Metric Rows */}
+                                <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-50 border-b border-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Metric</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Match</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Player</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Value</th>
+                                                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {metricTree[activeMetricCategory]?.metric_definitions?.map((definition) => {
+                                                    const rowData = metricRowData[definition.id] || {};
                                                     return (
-                                                        <div key={key_name} className="relative">
-                                                            <Input
-                                                                label={label}
-                                                                type={data_type === "integer" || data_type === "float" ? "number" : "text"}
-                                                                step={data_type === "float" ? "0.01" : data_type === "integer" ? "1" : undefined}
-                                                                placeholder={`Enter ${label.toLowerCase()}`}
-                                                                required={is_required && !isDisabled}
-                                                                value={metricsFormData[key_name] || ""}
-                                                                onChange={(e) => handleMetricInputChange(key_name, e.target.value, data_type)}
-                                                                disabled={isDisabled}
-                                                                className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
-                                                            />
-                                                            {isDisabled && (
-                                                                <div className="absolute top-0 right-0 mt-1 mr-1">
-                                                                    <div className="bg-red-50 border border-red-100 rounded-lg px-2 py-1 flex items-center gap-1">
-                                                                        <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                                                        </svg>
-                                                                        <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">No Access</span>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                            {fieldErrors[key_name] && (
-                                                                <p className="text-xs text-red-500 font-semibold px-1 mt-1">{fieldErrors[key_name]}</p>
-                                                            )}
-                                                        </div>
+                                                        <tr key={definition.id} className="hover:bg-gray-50/50 transition-colors">
+                                                            <td className="px-4 py-3">
+                                                                <span className="text-sm font-semibold text-gray-950">{definition.label}</span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <select
+                                                                    value={rowData.match_id || ""}
+                                                                    onChange={(e) => updateMetricRowData(definition.id, "match_id", e.target.value)}
+                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                >
+                                                                    <option value="">Select match</option>
+                                                                    {matches.map(match => {
+                                                                        const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                                                        const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                                                        const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                                                        const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                                                        return (
+                                                                            <option key={match.id} value={match.id}>
+                                                                                #{match.match_no} - {t1Name} vs {t2Name}
+                                                                            </option>
+                                                                        );
+                                                                    })}
+                                                                </select>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <select
+                                                                    value={rowData.person_id || ""}
+                                                                    onChange={(e) => updateMetricRowData(definition.id, "person_id", e.target.value)}
+                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                >
+                                                                    <option value="">Select player</option>
+                                                                    {players.filter(p => p.role === "PLAYER").map(player => (
+                                                                        <option key={player.id} value={player.id}>
+                                                                            {player.full_name}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                {definition.data_type === "boolean" ? (
+                                                                    <select
+                                                                        value={rowData.value || ""}
+                                                                        onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                    >
+                                                                        <option value="">Select</option>
+                                                                        <option value="true">Yes</option>
+                                                                        <option value="false">No</option>
+                                                                    </select>
+                                                                ) : (
+                                                                    <input
+                                                                        type={definition.data_type === "integer" || definition.data_type === "float" ? "number" : "text"}
+                                                                        step={definition.data_type === "float" ? "0.01" : definition.data_type === "integer" ? "1" : undefined}
+                                                                        placeholder="Enter value"
+                                                                        value={rowData.value || ""}
+                                                                        onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                    />
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <button
+                                                                    onClick={() => handleSubmitMetricRow(definition.id)}
+                                                                    disabled={!canEditMetricField()}
+                                                                    className="px-4 py-2 rounded-lg text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
+                                                                    style={{ backgroundColor: theme.primary_color }}
+                                                                >
+                                                                    Submit
+                                                                </button>
+                                                            </td>
+                                                        </tr>
                                                     );
                                                 })}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                <div className="pt-4 flex justify-end items-center gap-3">
-                                    {!hasPermission("data_entry:add") && (
-                                        <div className="flex items-center gap-2 text-red-400 text-xs font-bold uppercase tracking-widest">
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                            </svg>
-                                            No Permission to Save
-                                        </div>
-                                    )}
-                                    <Button
-                                        type="submit"
-                                        disabled={isSavingMetrics || !hasPermission("data_entry:add")}
-                                        className="min-w-[200px]"
-                                    >
-                                        {isSavingMetrics ? "SAVING..." : "SAVE METRICS"}
-                                    </Button>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </form>
+                            </div>
                         )}
                     </div>
                 )}
@@ -1421,7 +1454,7 @@ export default function EditionDetailPage() {
                                                     Edit
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDeleteMetricValue(row.id)}
+                                                    onClick={() => openDeleteModal(row.id)}
                                                     className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1468,6 +1501,49 @@ export default function EditionDetailPage() {
                                 UPDATE VALUE
                             </Button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {isDeleteModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div ref={deleteModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-red-50/30">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">Delete Metric Value</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Confirm Deletion</p>
+                                </div>
+                            </div>
+                            <button onClick={closeDeleteModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                                Are you sure you want to delete this metric value? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={closeDeleteModal}
+                                    className="flex-1 px-4 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold uppercase tracking-widest hover:bg-gray-200 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteMetricValue(deletingMetricValueId)}
+                                    className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white text-sm font-bold uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg hover:shadow-xl"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
