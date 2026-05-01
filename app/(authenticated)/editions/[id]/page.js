@@ -1262,9 +1262,9 @@ export default function EditionDetailPage() {
                                                                     className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
                                                                 >
                                                                     <option value="">Select player</option>
-                                                                    {players.filter(p => p.role === "PLAYER").map(player => (
+                                                                    {players.map(player => (
                                                                         <option key={player.id} value={player.id}>
-                                                                            {player.full_name}
+                                                                            {player.full_name} {player.role && player.role !== "PLAYER" ? `(${player.role})` : ""}
                                                                         </option>
                                                                     ))}
                                                                 </select>

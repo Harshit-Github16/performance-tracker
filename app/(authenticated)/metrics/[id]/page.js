@@ -34,6 +34,8 @@ export default function MetricDefinitionsPage() {
         data_type: "integer",
         target_level: "match",
         is_required: false,
+        is_match_required: false,
+        is_player_required: false,
     };
     const [formData, setFormData] = useState(defaultForm);
 
@@ -132,6 +134,8 @@ export default function MetricDefinitionsPage() {
                 data_type: def.data_type || "integer",
                 target_level: def.target_level || "match",
                 is_required: def.is_required ?? false,
+                is_match_required: def.is_match_required ?? false,
+                is_player_required: def.is_player_required ?? false,
             });
         } else {
             setEditingId(null);
@@ -167,6 +171,8 @@ export default function MetricDefinitionsPage() {
             data_type: formData.data_type,
             target_level: formData.target_level,
             is_required: formData.is_required,
+            is_match_required: formData.is_match_required,
+            is_player_required: formData.is_player_required,
         };
 
         const result = editingId
@@ -362,13 +368,13 @@ export default function MetricDefinitionsPage() {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                    <div ref={modalRef} className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20 sticky top-0 bg-white z-10">
                             <div>
-                                <h3 className="text-xl font-semibold text-gray-950 uppercase tracking-tight">
+                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">
                                     {editingId ? "Edit Definition" : "Add Definition"}
                                 </h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1.5 tracking-widest uppercase">
+                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">
                                     {editingId ? "Update metric definition" : "Create a new metric definition"}
                                 </p>
                             </div>
@@ -382,7 +388,7 @@ export default function MetricDefinitionsPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSave} className="p-8 space-y-5">
+                        <form onSubmit={handleSave} className="p-6 space-y-4">
                             {/* Sport Dropdown */}
                             <div className="flex flex-col space-y-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sport</label>
@@ -390,7 +396,7 @@ export default function MetricDefinitionsPage() {
                                     value={formData.sport_id}
                                     onChange={(e) => setFormData({ ...formData, sport_id: e.target.value })}
                                     required
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
                                 >
                                     <option value="">Select Sport</option>
                                     {sports.map((sport) => (
@@ -401,32 +407,44 @@ export default function MetricDefinitionsPage() {
                                 </select>
                             </div>
 
-                            <Input
-                                label="Label"
-                                placeholder="e.g. Runs Scored"
-                                required
-                                value={formData.label}
-                                onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                            />
+                            {/* Label and Key Name */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Label</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Runs Scored"
+                                        required
+                                        value={formData.label}
+                                        onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium text-gray-950 outline-none transition-all focus:bg-white focus:border-gray-950"
+                                    />
+                                </div>
 
-                            <Input
-                                label="Key Name"
-                                placeholder="e.g. runs_scored"
-                                required
-                                value={formData.key_name}
-                                onChange={(e) => setFormData({
-                                    ...formData,
-                                    key_name: e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, ""),
-                                })}
-                            />
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Key Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. runs_scored"
+                                        required
+                                        value={formData.key_name}
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            key_name: e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, ""),
+                                        })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium text-gray-950 outline-none transition-all focus:bg-white focus:border-gray-950"
+                                    />
+                                </div>
+                            </div>
 
+                            {/* Data Type and Target Level */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Data Type</label>
                                     <select
                                         value={formData.data_type}
                                         onChange={(e) => setFormData({ ...formData, data_type: e.target.value })}
-                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
                                     >
                                         {DATA_TYPES.map(t => (
                                             <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
@@ -434,24 +452,51 @@ export default function MetricDefinitionsPage() {
                                     </select>
                                 </div>
 
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Target Level</label>
+                                    <select
+                                        value={formData.target_level}
+                                        onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                    >
+                                        {TARGET_LEVELS.map(l => (
+                                            <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Target Level</label>
-                                <select
-                                    value={formData.target_level}
-                                    onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                >
-                                    {TARGET_LEVELS.map(l => (
-                                        <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
-                                    ))}
-                                </select>
 
+                            {/* Is Match Required and Is Player Required */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Match Required</label>
+                                    <select
+                                        value={formData.is_match_required ? "yes" : "no"}
+                                        onChange={(e) => setFormData({ ...formData, is_match_required: e.target.value === "yes" })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                    >
+                                        <option value="no">No</option>
+                                        <option value="yes">Yes</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Player Required</label>
+                                    <select
+                                        value={formData.is_player_required ? "yes" : "no"}
+                                        onChange={(e) => setFormData({ ...formData, is_player_required: e.target.value === "yes" })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                    >
+                                        <option value="no">No</option>
+                                        <option value="yes">Yes</option>
+                                    </select>
+                                </div>
                             </div>
 
+                            {/* Required Checkbox */}
                             <div className="flex flex-col space-y-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Required</label>
-                                <div className="flex items-center h-[52px] px-5 bg-gray-50 border border-gray-100 rounded-xl">
+                                <div className="flex items-center h-[48px] px-4 bg-gray-50 border border-gray-100 rounded-xl">
                                     <label className="flex items-center gap-3 cursor-pointer group/check">
                                         <div
                                             onClick={() => setFormData(prev => ({ ...prev, is_required: !prev.is_required }))}
@@ -470,6 +515,7 @@ export default function MetricDefinitionsPage() {
                                 </div>
                             </div>
 
+                            {/* Submit Button */}
                             <div className="pt-2">
                                 <Button type="submit" disabled={isSaving} className="w-full">
                                     {isSaving ? "SAVING..." : editingId ? "SAVE CHANGES" : "CREATE DEFINITION"}
