@@ -173,9 +173,11 @@ export default function EditionDetailPage() {
     };
 
     const fetchPlayers = async () => {
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        if (!activeIp) return;
         setPlayersLoading(true);
         const result = await apiClient.get(
-            `${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}?edition_id=${id}`
+            `${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}?edition_id=${id}&property_id=${activeIp?.id}`
         );
         if (result.success) {
             const arr = result.data?.data?.persons
@@ -643,17 +645,20 @@ export default function EditionDetailPage() {
     const handleSavePlayer = async (e) => {
         e.preventDefault();
         setIsSavingPlayer(true);
+        console.log("playerFormplayerFormplayerForm", playerForm)
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const payload = {
+            property_id: activeIp?.id,
             full_name: playerForm.full_name,
             role: playerForm.role,
             external_id: playerForm.external_id || undefined,
             source: playerForm.source || "manual",
             edition_id: Number(id),
-            team_id: playerForm.role === "OFFICIAL" ? null : (playerForm.team_id ? Number(playerForm.team_id) : undefined),
+            team_id: playerForm.role == "OFFICIAL" ? null : (playerForm.team_id ? Number(playerForm.team_id) : undefined),
         };
         const result = editingPlayerId
             ? await apiClient.put(`${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${editingPlayerId}`, payload)
-            : await apiClient.post(process.env.NEXT_PUBLIC_PERSONS_ENDPOINT, payload);
+            : await apiClient.post(`${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}`, payload);
         if (result.success) {
             toast.success(`${playerForm.full_name} ${editingPlayerId ? "updated" : "registered"} successfully!`, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
