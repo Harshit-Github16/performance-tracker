@@ -7,9 +7,10 @@ import gsap from "gsap";
 import { Button, DataTable, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
+import { ServerPaginatedTable } from "@/components/ServerPaginatedTable";
 import apiClient from "@/lib/apiClient";
 
-const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Edit Details"];
+const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Stats", "Edit Details"];
 
 // Matches loaded from API now
 
@@ -88,6 +89,23 @@ export default function EditionDetailPage() {
     const [userPermissions, setUserPermissions] = useState([]);
     const [isIpOwner, setIsIpOwner] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
+    const [selectedMatchId, setSelectedMatchId] = useState("");
+    const [selectedPersonId, setSelectedPersonId] = useState("");
+
+    // Stats state
+    const [metricValues, setMetricValues] = useState([]);
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [statsPage, setStatsPage] = useState(1);
+    const [statsTotalPages, setStatsTotalPages] = useState(1);
+    const [statsFilters, setStatsFilters] = useState({
+        match_id: "",
+        metric_definition_id: "",
+        is_approved: ""
+    });
+    const [isEditingMetricValue, setIsEditingMetricValue] = useState(false);
+    const [editingMetricValueId, setEditingMetricValueId] = useState(null);
+    const [editMetricValueForm, setEditMetricValueForm] = useState({ value_text: "" });
+    const editMetricValueModalRef = useRef(null);
 
     useEffect(() => {
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
@@ -109,6 +127,13 @@ export default function EditionDetailPage() {
         fetchSponsorships();
         fetchMetricTree();
     }, [id]);
+
+    // Fetch metric values when Stats tab is active
+    useEffect(() => {
+        if (activeTab === "Stats") {
+            fetchMetricValues();
+        }
+    }, [activeTab, statsPage, statsFilters]);
 
     const fetchEdition = async () => {
         const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
@@ -272,6 +297,18 @@ export default function EditionDetailPage() {
         const errors = {};
         let hasError = false;
 
+        // Validate match and player selection
+        if (!selectedMatchId) {
+            toast.error("Please select a match");
+            return;
+        }
+
+        if (!selectedPersonId) {
+            toast.error("Please select a player");
+            return;
+        }
+
+        // Validate required fields
         if (metricTree && Array.isArray(metricTree)) {
             metricTree.forEach(category => {
                 if (Array.isArray(category.metric_definitions)) {
@@ -292,15 +329,142 @@ export default function EditionDetailPage() {
         }
 
         setIsSavingMetrics(true);
-        console.log("Metrics Data to Submit:", metricsFormData);
 
-        // Simulate API call
-        setTimeout(() => {
-            toast.success("Metrics saved successfully!", {
+        // Submit each metric value to the API
+        const promises = [];
+        const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+        if (metricTree && Array.isArray(metricTree)) {
+            metricTree.forEach(category => {
+                if (Array.isArray(category.metric_definitions)) {
+                    category.metric_definitions.forEach(def => {
+                        const value = metricsFormData[def.key_name];
+
+                        // Only submit if value is not empty
+                        if (value !== "" && value !== null && value !== undefined) {
+                            const payload = {
+                                metric_definition_id: def.id,
+                                edition_id: Number(id),
+                                match_id: Number(selectedMatchId),
+                                person_id: Number(selectedPersonId),
+                                recorded_date: currentDate,
+                                value_text: String(value)
+                            };
+
+                            promises.push(
+                                apiClient.post(process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT, payload)
+                            );
+                        }
+                    });
+                }
+            });
+        }
+
+        try {
+            const results = await Promise.all(promises);
+            const allSuccess = results.every(result => result.success);
+
+            if (allSuccess) {
+                toast.success("Metrics saved successfully!", {
+                    style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+                });
+                // Reset form
+                setMetricsFormData({});
+                setSelectedMatchId("");
+                setSelectedPersonId("");
+                initializeMetricsFormData(metricTree);
+            } else {
+                toast.error("Some metrics failed to save. Please try again.");
+            }
+        } catch (error) {
+            console.error("Error saving metrics:", error);
+            toast.error("Failed to save metrics. Please try again.");
+        }
+
+        setIsSavingMetrics(false);
+    };
+
+    // Stats functions
+    const fetchMetricValues = async () => {
+        setStatsLoading(true);
+        const params = new URLSearchParams({
+            page: statsPage,
+            limit: 10,
+            edition_id: id
+        });
+
+        if (statsFilters.match_id) params.set("match_id", statsFilters.match_id);
+        if (statsFilters.metric_definition_id) params.set("metric_definition_id", statsFilters.metric_definition_id);
+        if (statsFilters.is_approved) params.set("is_approved", statsFilters.is_approved);
+
+        const result = await apiClient.get(
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}?${params.toString()}`
+        );
+
+        if (result.success) {
+            const data = result.data?.data;
+            const arr = Array.isArray(data?.metric_values) ? data.metric_values
+                : Array.isArray(data) ? data : [];
+            setMetricValues(arr);
+
+            const total = data?.total || arr.length;
+            setStatsTotalPages(Math.ceil(total / 10));
+        } else {
+            toast.error(result.error || "Failed to load metric values.");
+        }
+        setStatsLoading(false);
+    };
+
+    const openEditMetricValueModal = (metricValue) => {
+        setEditingMetricValueId(metricValue.id);
+        setEditMetricValueForm({ value_text: metricValue.value_text || "" });
+        setIsEditingMetricValue(true);
+        requestAnimationFrame(() => {
+            if (editMetricValueModalRef.current)
+                gsap.fromTo(editMetricValueModalRef.current, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" });
+        });
+    };
+
+    const closeEditMetricValueModal = () => {
+        gsap.to(editMetricValueModalRef.current, {
+            scale: 0.95, opacity: 0, duration: 0.2, ease: "power2.in",
+            onComplete: () => setIsEditingMetricValue(false),
+        });
+    };
+
+    const handleUpdateMetricValue = async (e) => {
+        e.preventDefault();
+        const result = await apiClient.put(
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${editingMetricValueId}`,
+            { value_text: editMetricValueForm.value_text }
+        );
+
+        if (result.success) {
+            toast.success("Metric value updated successfully!", {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
-            setIsSavingMetrics(false);
-        }, 1000);
+            await fetchMetricValues();
+            closeEditMetricValueModal();
+        } else {
+            toast.error(result.error || "Failed to update metric value.");
+        }
+    };
+
+    const handleDeleteMetricValue = async (metricValueId) => {
+        if (!confirm("Are you sure you want to delete this metric value?")) return;
+
+        const result = await apiClient.delete(
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${metricValueId}`
+        );
+
+        if (result.success) {
+            toast.success("Metric value deleted!", {
+                style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
+            });
+            await fetchMetricValues();
+        } else {
+            toast.error(result.error || "Failed to delete metric value.");
+        }
     };
 
     const openSponsorModal = (sponsor = null) => {
@@ -952,6 +1116,55 @@ export default function EditionDetailPage() {
                             </div>
                         ) : (
                             <form onSubmit={handleMetricsSubmit} className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-8 space-y-8">
+                                {/* Match and Player Selection */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-6 border-b border-gray-100">
+                                    {/* Match Dropdown */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                                            Select Match <span className="text-red-400">*</span>
+                                        </label>
+                                        <select
+                                            required
+                                            value={selectedMatchId}
+                                            onChange={(e) => setSelectedMatchId(e.target.value)}
+                                            className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                        >
+                                            <option value="">Choose a match</option>
+                                            {matches.map(match => {
+                                                const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                                const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                                const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                                const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                                return (
+                                                    <option key={match.id} value={match.id}>
+                                                        Match #{match.match_no} - {t1Name} vs {t2Name} ({match.round})
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
+
+                                    {/* Player Dropdown */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+                                            Select Player <span className="text-red-400">*</span>
+                                        </label>
+                                        <select
+                                            required
+                                            value={selectedPersonId}
+                                            onChange={(e) => setSelectedPersonId(e.target.value)}
+                                            className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                        >
+                                            <option value="">Choose a player</option>
+                                            {players.filter(p => p.role === "PLAYER").map(player => (
+                                                <option key={player.id} value={player.id}>
+                                                    {player.full_name} {player.external_id ? `(${player.external_id})` : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
                                 {metricTree.map((category, catIndex) => {
                                     if (!Array.isArray(category.metric_definitions) || category.metric_definitions.length === 0) {
                                         return null;
@@ -1071,7 +1284,193 @@ export default function EditionDetailPage() {
                 {activeTab === "Edit Details" && edition && (
                     <EditDetailsForm edition={edition} id={id} theme={theme} onSaved={fetchEdition} />
                 )}
+
+                {/* STATS */}
+                {activeTab === "Stats" && (
+                    <div className="space-y-4">
+                        {/* Filters */}
+                        <div className="flex gap-3">
+                            <div className="flex-1">
+                                <select
+                                    value={statsFilters.match_id}
+                                    onChange={(e) => setStatsFilters({ ...statsFilters, match_id: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:border-gray-950 transition-all"
+                                >
+                                    <option value="">All Matches</option>
+                                    {matches.map(match => {
+                                        const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                        const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                        const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                        const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                        return (
+                                            <option key={match.id} value={match.id}>
+                                                Match #{match.match_no} - {t1Name} vs {t2Name}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                            <div className="flex-1">
+                                <select
+                                    value={statsFilters.is_approved}
+                                    onChange={(e) => setStatsFilters({ ...statsFilters, is_approved: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:border-gray-950 transition-all"
+                                >
+                                    <option value="">All Status</option>
+                                    <option value="true">Approved</option>
+                                    <option value="false">Pending</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {statsLoading ? (
+                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+                                ))}
+                            </div>
+                        ) : (
+                            <ServerPaginatedTable
+                                columns={[
+                                    {
+                                        header: "#",
+                                        accessor: "index",
+                                        render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
+                                    },
+                                    {
+                                        header: "Match",
+                                        accessor: "match",
+                                        render: (row) => {
+                                            const match = matches.find(m => m.id === row.match_id);
+                                            if (!match) return <span className="text-sm text-gray-500">—</span>;
+                                            const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                            const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                            const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                            const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                            return (
+                                                <span className="text-sm font-semibold text-gray-950">
+                                                    #{match.match_no} - {t1Name} vs {t2Name}
+                                                </span>
+                                            );
+                                        }
+                                    },
+                                    {
+                                        header: "Player",
+                                        accessor: "person",
+                                        render: (row) => {
+                                            const player = players.find(p => p.id === row.person_id);
+                                            return (
+                                                <span className="text-sm font-semibold text-gray-950">
+                                                    {player?.full_name || `Player ${row.person_id}`}
+                                                </span>
+                                            );
+                                        }
+                                    },
+                                    {
+                                        header: "Metric",
+                                        accessor: "metric_definition",
+                                        render: (row) => {
+                                            let metricName = "—";
+                                            if (metricTree && Array.isArray(metricTree)) {
+                                                metricTree.forEach(category => {
+                                                    if (Array.isArray(category.metric_definitions)) {
+                                                        const def = category.metric_definitions.find(d => d.id === row.metric_definition_id);
+                                                        if (def) metricName = def.label;
+                                                    }
+                                                });
+                                            }
+                                            return <span className="text-sm text-gray-700">{metricName}</span>;
+                                        }
+                                    },
+                                    {
+                                        header: "Value",
+                                        accessor: "value_text",
+                                        render: (row) => (
+                                            <span className="text-sm font-bold text-gray-950">{row.value_text}</span>
+                                        )
+                                    },
+                                    {
+                                        header: "Date",
+                                        accessor: "recorded_date",
+                                        render: (row) => (
+                                            <span className="text-xs text-gray-500">
+                                                {row.recorded_date ? new Date(row.recorded_date).toLocaleDateString("en-IN") : "—"}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Status",
+                                        accessor: "is_approved",
+                                        align: "center",
+                                        render: (row) => (
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${row.is_approved ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                                                {row.is_approved ? "Approved" : "Pending"}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Actions",
+                                        accessor: "actions",
+                                        align: "center",
+                                        render: (row) => (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => openEditMetricValueModal(row)}
+                                                    className="h-8 px-3 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteMetricValue(row.id)}
+                                                    className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        )
+                                    }
+                                ]}
+                                data={metricValues.map((mv, idx) => ({ ...mv, index: (statsPage - 1) * 10 + idx + 1 }))}
+                                currentPage={statsPage}
+                                totalPages={statsTotalPages}
+                                onPageChange={setStatsPage}
+                                emptyMessage="No metric values found."
+                            />
+                        )}
+                    </div>
+                )}
             </div>
+
+            {/* Edit Metric Value Modal */}
+            {isEditingMetricValue && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div ref={editMetricValueModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">Edit Metric Value</h3>
+                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Update Value</p>
+                            </div>
+                            <button onClick={closeEditMetricValueModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <form onSubmit={handleUpdateMetricValue} className="p-6 space-y-4">
+                            <Input
+                                label="Value"
+                                placeholder="Enter value"
+                                required
+                                value={editMetricValueForm.value_text}
+                                onChange={(e) => setEditMetricValueForm({ value_text: e.target.value })}
+                            />
+                            <Button type="submit" className="w-full">
+                                UPDATE VALUE
+                            </Button>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Match Modal */}
             {isMatchModalOpen && (
@@ -1119,115 +1518,121 @@ export default function EditionDetailPage() {
                         </form>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* Player Modal */}
-            {isPlayerModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
+            {
+                isPlayerModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
+                                </div>
+                                <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             </div>
-                            <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
+                                <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
+                                        <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
+                                        <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                            <option value="">No Team</option>
+                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
+                                    <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        <option value="KADAMBA">KADAMBA</option>
+                                        <option value="SISPORT">SISPORT</option>
+                                        <option value="VOTKBD">VOTKBD</option>
+                                        <option value="STARSELEV8">STARSELEV8</option>
+                                        <option value="YKS">YKS</option>
+                                    </select>
+                                </div>
+                                <Button type="submit" disabled={isSavingPlayer} className="w-full">
+                                    {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
+                                </Button>
+                            </form>
                         </div>
-                        <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
-                            <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
-                                    <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                                    </select>
-                                </div>
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
-                                    <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        <option value="">No Team</option>
-                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
-                                <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                    <option value="KADAMBA">KADAMBA</option>
-                                    <option value="SISPORT">SISPORT</option>
-                                    <option value="VOTKBD">VOTKBD</option>
-                                    <option value="STARSELEV8">STARSELEV8</option>
-                                    <option value="YKS">YKS</option>
-                                </select>
-                            </div>
-                            <Button type="submit" disabled={isSavingPlayer} className="w-full">
-                                {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
-                            </Button>
-                        </form>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Sponsor Modal */}
-            {isSponsorModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={sponsorModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingSponsorId ? "Edit Sponsor" : "Add Sponsor"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Sponsorship Details</p>
+            {
+                isSponsorModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={sponsorModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingSponsorId ? "Edit Sponsor" : "Add Sponsor"}</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Sponsorship Details</p>
+                                </div>
+                                <button onClick={closeSponsorModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             </div>
-                            <button onClick={closeSponsorModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <form onSubmit={handleSaveSponsor} className="p-6 space-y-4">
+                                <Input label="Brand Name" placeholder="e.g. Nike" required value={sponsorForm.brand_name} onChange={(e) => setSponsorForm({ ...sponsorForm, brand_name: e.target.value })} />
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sponsor Type</label>
+                                    <select required value={sponsorForm.sponsor_type} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_type: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        <option value="TITLE">TITLE</option>
+                                        <option value="CO-SPONSOR">CO-SPONSOR</option>
+                                        <option value="ASSOCIATE">ASSOCIATE</option>
+                                        <option value="POWERED BY">POWERED BY</option>
+                                        <option value="OFFICIAL PARTNER">OFFICIAL PARTNER</option>
+                                    </select>
+                                </div>
+                                <Input label="Contract Value (₹)" type="number" placeholder="e.g. 50000" required value={sponsorForm.contract_value} onChange={(e) => setSponsorForm({ ...sponsorForm, contract_value: e.target.value })} />
+                                <Button type="submit" disabled={isSavingSponsor} className="w-full">
+                                    {isSavingSponsor ? "SAVING..." : editingSponsorId ? "SAVE CHANGES" : "ADD SPONSOR"}
+                                </Button>
+                            </form>
                         </div>
-                        <form onSubmit={handleSaveSponsor} className="p-6 space-y-4">
-                            <Input label="Brand Name" placeholder="e.g. Nike" required value={sponsorForm.brand_name} onChange={(e) => setSponsorForm({ ...sponsorForm, brand_name: e.target.value })} />
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sponsor Type</label>
-                                <select required value={sponsorForm.sponsor_type} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_type: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                    <option value="TITLE">TITLE</option>
-                                    <option value="CO-SPONSOR">CO-SPONSOR</option>
-                                    <option value="ASSOCIATE">ASSOCIATE</option>
-                                    <option value="POWERED BY">POWERED BY</option>
-                                    <option value="OFFICIAL PARTNER">OFFICIAL PARTNER</option>
-                                </select>
-                            </div>
-                            <Input label="Contract Value (₹)" type="number" placeholder="e.g. 50000" required value={sponsorForm.contract_value} onChange={(e) => setSponsorForm({ ...sponsorForm, contract_value: e.target.value })} />
-                            <Button type="submit" disabled={isSavingSponsor} className="w-full">
-                                {isSavingSponsor ? "SAVING..." : editingSponsorId ? "SAVE CHANGES" : "ADD SPONSOR"}
-                            </Button>
-                        </form>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Team Modal */}
-            {isTeamModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingTeamId ? "Edit Team" : "Add Team"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Team Details</p>
+            {
+                isTeamModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingTeamId ? "Edit Team" : "Add Team"}</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Team Details</p>
+                                </div>
+                                <button onClick={closeTeamModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             </div>
-                            <button onClick={closeTeamModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
+                                <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
+                                <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
+                                <Input label="Logo URL" placeholder="https://example.com/logo.png" value={teamForm.logo_url} onChange={(e) => setTeamForm({ ...teamForm, logo_url: e.target.value })} />
+                                <Button type="submit" disabled={isSavingTeam} className="w-full">
+                                    {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
+                                </Button>
+                            </form>
                         </div>
-                        <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
-                            <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
-                            <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
-                            <Input label="Logo URL" placeholder="https://example.com/logo.png" value={teamForm.logo_url} onChange={(e) => setTeamForm({ ...teamForm, logo_url: e.target.value })} />
-                            <Button type="submit" disabled={isSavingTeam} className="w-full">
-                                {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
-                            </Button>
-                        </form>
-                    </div>
-                </div >
-            )
+                    </div >
+                )
             }
         </div >
     );

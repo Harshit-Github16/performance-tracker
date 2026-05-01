@@ -31,6 +31,10 @@ const nextConfig = {
     // Metrics
     NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT: "/metric-categories",
     NEXT_PUBLIC_METRIC_DEFINITIONS_ENDPOINT: "/metric-definitions",
+    NEXT_PUBLIC_METRIC_VALUES_ENDPOINT: "/metric-values",
+
+    // Change Requests (Approvals)
+    NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT: "/change-requests",
   },
 };
 
