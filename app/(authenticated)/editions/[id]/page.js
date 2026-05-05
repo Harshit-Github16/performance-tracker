@@ -673,7 +673,11 @@ export default function EditionDetailPage() {
     };
 
     const handleDeletePlayer = async (playerId, playerName) => {
-        const result = await apiClient.delete(`${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${playerId}`);
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const result = await apiClient.delete(
+            `${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${playerId}`,
+            { property_id: activeIp?.id }
+        );
         if (result.success) {
             setPlayers(prev => prev.filter(p => p.id !== playerId));
             toast.success(`${playerName} removed!`, {
