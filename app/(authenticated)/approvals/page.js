@@ -159,7 +159,18 @@ export default function ApprovalsPage() {
                                 accessor: "index",
                                 render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
                             },
-
+                            {
+                                header: "Type",
+                                accessor: "type",
+                                render: (row) => (
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.original.type === "new_entry"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-purple-100 text-purple-700"
+                                        }`}>
+                                        {row.original.type === "new_entry" ? "New Entry" : "Correction"}
+                                    </span>
+                                )
+                            },
                             {
                                 header: "Metric Value",
                                 accessor: "metric_value",
@@ -175,22 +186,58 @@ export default function ApprovalsPage() {
                             {
                                 header: "Match",
                                 accessor: "match_id",
-                                render: (row) => (
-                                    <span className="text-xs text-gray-600">
-                                        Match #{row.original.metric_value?.match_id || "—"}
-                                    </span>
-                                )
+                                render: (row) => {
+                                    const match = row.original.metric_value?.match;
+                                    if (!match) {
+                                        return <span className="text-xs text-gray-400">—</span>;
+                                    }
+                                    return (
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-gray-700">
+                                                Match #{match.match_no || "—"}
+                                            </span>
+                                            <span className="text-[10px] text-gray-500">
+                                                Round: {match.round || "—"}
+                                            </span>
+                                            <span className="text-[10px] text-gray-600 font-medium">
+                                                {match.team1?.name || "Team 1"} vs {match.team2?.name || "Team 2"}
+                                            </span>
+                                        </div>
+                                    );
+                                }
                             },
                             {
                                 header: "Player",
                                 accessor: "person_id",
                                 render: (row) => (
-                                    <span className="text-xs text-gray-600">
+                                    <span className="text-xs font-medium text-gray-600">
                                         Player #{row.original.metric_value?.person_id || "—"}
                                     </span>
                                 )
                             },
-
+                            {
+                                header: "Metric Definition",
+                                accessor: "metric_definition_id",
+                                render: (row) => (
+                                    <span className="text-xs text-gray-600">
+                                        ID: {row.original.metric_value?.metric_definition_id || "—"}
+                                    </span>
+                                )
+                            },
+                            {
+                                header: "Submitted By",
+                                accessor: "submitter",
+                                render: (row) => (
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-semibold text-gray-700">
+                                            {row.original.submitter?.full_name || "—"}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400">
+                                            {row.original.submitter?.email || "—"}
+                                        </span>
+                                    </div>
+                                )
+                            },
                             {
                                 header: "Date",
                                 accessor: "submitted_at",

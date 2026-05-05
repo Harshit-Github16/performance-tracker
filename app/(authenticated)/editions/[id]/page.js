@@ -507,7 +507,8 @@ export default function EditionDetailPage() {
         );
 
         if (result.success) {
-            toast.success("Metric value updated successfully!", {
+            const message = result.data?.message || result.message || "Metric value updated successfully!";
+            toast.success(message, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
             await fetchMetricValues();
