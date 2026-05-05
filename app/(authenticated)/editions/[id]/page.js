@@ -9,6 +9,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { ServerPaginatedTable } from "@/components/ServerPaginatedTable";
 import apiClient from "@/lib/apiClient";
+import { uploadImageToGCP } from "@/lib/uploadToGCP";
 
 const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Stats", "Requests", "Edit Details"];
 
@@ -49,8 +50,9 @@ export default function EditionDetailPage() {
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [editingTeamId, setEditingTeamId] = useState(null);
     const [isSavingTeam, setIsSavingTeam] = useState(false);
-    const [teamForm, setTeamForm] = useState({ name: "", short_name: "", logo_url: "" });
+    const [teamForm, setTeamForm] = useState({ name: "", short_name: "", logo: null, logoPreview: "" });
     const teamModalRef = useRef(null);
+    const teamLogoRef = useRef(null);
     const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
     const [editingMatchId, setEditingMatchId] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -747,10 +749,10 @@ export default function EditionDetailPage() {
     const openTeamModal = (team = null) => {
         if (team) {
             setEditingTeamId(team.id);
-            setTeamForm({ name: team.name || "", short_name: team.short_name || "", logo_url: team.logo_url || "" });
+            setTeamForm({ name: team.name || "", short_name: team.short_name || "", logo: null, logoPreview: team.logo_url || "" });
         } else {
             setEditingTeamId(null);
-            setTeamForm({ name: "", short_name: "", logo_url: "" });
+            setTeamForm({ name: "", short_name: "", logo: null, logoPreview: "" });
         }
         setIsTeamModalOpen(true);
         requestAnimationFrame(() => {
@@ -774,7 +776,7 @@ export default function EditionDetailPage() {
             property_id: activeIp?.id,
             name: teamForm.name,
             short_name: teamForm.short_name,
-            logo_url: teamForm.logo_url || "",
+            logo_url: teamForm.logoPreview || "",
         };
         const result = editingTeamId
             ? await apiClient.put(`${process.env.NEXT_PUBLIC_TEAMS_ENDPOINT}/${editingTeamId}`, payload)
@@ -789,6 +791,55 @@ export default function EditionDetailPage() {
             toast.error(result.error || "Failed to save team.");
         }
         setIsSavingTeam(false);
+    };
+
+    const handleTeamLogoChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        console.log("📸 Team Logo Upload Started:", {
+            fileName: file.name,
+            fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+            fileType: file.type
+        });
+
+        // Validate file type
+        const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+        if (!validTypes.includes(file.type)) {
+            console.error("❌ Invalid file type:", file.type);
+            toast.error("Invalid file type. Only images are allowed.");
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            console.error("❌ File too large:", `${(file.size / 1024 / 1024).toFixed(2)} MB`);
+            toast.error("File size exceeds 5MB limit.");
+            return;
+        }
+
+        // Show preview
+        const preview = URL.createObjectURL(file);
+        setTeamForm(prev => ({ ...prev, logo: file, logoPreview: preview }));
+        console.log("✅ Preview created:", preview);
+
+        // Upload to GCP
+        console.log("🚀 Starting GCP upload...");
+        toast.loading("Uploading logo to GCP...", { id: "team-logo-upload" });
+
+        const uploadResult = await uploadImageToGCP(file, "teams");
+
+        console.log("📦 Upload Result:", uploadResult);
+
+        if (uploadResult.success) {
+            console.log("✅ Upload successful! GCP URL:", uploadResult.url);
+            toast.success("Logo uploaded successfully!", { id: "team-logo-upload" });
+            setTeamForm(prev => ({ ...prev, logoPreview: uploadResult.url }));
+        } else {
+            console.error("❌ Upload failed:", uploadResult.error);
+            toast.error(uploadResult.error || "Failed to upload logo", { id: "team-logo-upload" });
+        }
     };
 
     const handleDeleteTeam = async (teamId, teamName) => {
@@ -981,13 +1032,33 @@ export default function EditionDetailPage() {
                                     <p className="text-xs text-gray-300 mt-1">Click 'Add Match' to schedule one</p>
                                 </div>
                             ) : matches.map((match) => {
-                                // team1/team2 come as objects from API: { id, name, short_name }
-                                const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
-                                const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
-                                const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
-                                const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
-                                const t1Short = (typeof t1 === "object" ? t1?.short_name : null) || String(t1Name).slice(0, 2).toUpperCase();
-                                const t2Short = (typeof t2 === "object" ? t2?.short_name : null) || String(t2Name).slice(0, 2).toUpperCase();
+                                // Always look up teams from the teams array to get the latest logo_url
+                                const team1 = teams.find(t => t.id === match.team1_id);
+                                const team2 = teams.find(t => t.id === match.team2_id);
+
+                                // Get team details - prioritize teams array data
+                                const t1Name = team1?.name || match.team1?.name || `Team ${match.team1_id}`;
+                                const t2Name = team2?.name || match.team2?.name || `Team ${match.team2_id}`;
+                                const t1Short = team1?.short_name || match.team1?.short_name || String(t1Name).slice(0, 2).toUpperCase();
+                                const t2Short = team2?.short_name || match.team2?.short_name || String(t2Name).slice(0, 2).toUpperCase();
+
+                                // Get logos - prioritize teams array
+                                const t1Logo = team1?.logo_url || match.team1?.logo_url || null;
+                                const t2Logo = team2?.logo_url || match.team2?.logo_url || null;
+
+                                console.log("Match Render Debug:", {
+                                    match_id: match.id,
+                                    match_no: match.match_no,
+                                    team1_id: match.team1_id,
+                                    team2_id: match.team2_id,
+                                    teams_array_length: teams.length,
+                                    team1_found: !!team1,
+                                    team2_found: !!team2,
+                                    team1_data: team1 ? { id: team1.id, name: team1.name, logo_url: team1.logo_url } : null,
+                                    team2_data: team2 ? { id: team2.id, name: team2.name, logo_url: team2.logo_url } : null,
+                                    t1Logo,
+                                    t2Logo
+                                });
 
                                 // Calculate actual status based on timestamps
                                 const matchStatus = getMatchStatus(match);
@@ -1008,19 +1079,31 @@ export default function EditionDetailPage() {
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="flex-1 flex flex-col items-center gap-2">
-                                                    <div className="h-12 w-12 rounded-2xl flex items-center justify-center text-white text-sm font-black shadow-sm" style={{ backgroundColor: theme.primary_color }}>
-                                                        {t1Short}
-                                                    </div>
-                                                    <p className="text-xs font-bold text-gray-800 text-center line-clamp-1 w-full">{t1Name}</p>
+                                                    {t1Logo ? (
+                                                        <div className="h-16 w-16 rounded-2xl flex items-center justify-center bg-white shadow-sm border border-gray-100 p-2">
+                                                            <img src={t1Logo} alt={t1Name} className="w-full h-full object-contain" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-white text-base font-black shadow-sm" style={{ backgroundColor: theme.primary_color }}>
+                                                            {t1Short}
+                                                        </div>
+                                                    )}
+                                                    <p className="text-sm font-bold text-gray-800 text-center line-clamp-2 w-full">{t1Name}</p>
                                                 </div>
                                                 <div className="h-8 w-8 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm shrink-0">
                                                     <span className="text-[9px] font-black text-gray-300">VS</span>
                                                 </div>
                                                 <div className="flex-1 flex flex-col items-center gap-2">
-                                                    <div className="h-12 w-12 rounded-2xl flex items-center justify-center text-white text-sm font-black shadow-sm" style={{ backgroundColor: theme.secondary_color }}>
-                                                        {t2Short}
-                                                    </div>
-                                                    <p className="text-xs font-bold text-gray-800 text-center line-clamp-1 w-full">{t2Name}</p>
+                                                    {t2Logo ? (
+                                                        <div className="h-16 w-16 rounded-2xl flex items-center justify-center bg-white shadow-sm border border-gray-100 p-2">
+                                                            <img src={t2Logo} alt={t2Name} className="w-full h-full object-contain" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-white text-base font-black shadow-sm" style={{ backgroundColor: theme.secondary_color }}>
+                                                            {t2Short}
+                                                        </div>
+                                                    )}
+                                                    <p className="text-sm font-bold text-gray-800 text-center line-clamp-2 w-full">{t2Name}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -1080,9 +1163,13 @@ export default function EditionDetailPage() {
                                 {teams.map((team) => (
                                     <div key={team.id} className="group bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200">
                                         <div className="relative h-28 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
-                                            <span className="text-white font-black text-3xl tracking-tight select-none opacity-90">
-                                                {team.short_name || team.name?.slice(0, 2).toUpperCase()}
-                                            </span>
+                                            {team.logo_url ? (
+                                                <img src={team.logo_url} alt={team.name} className="w-16 h-16 object-contain" />
+                                            ) : (
+                                                <span className="text-white font-black text-3xl tracking-tight select-none opacity-90">
+                                                    {team.short_name || team.name?.slice(0, 2).toUpperCase()}
+                                                </span>
+                                            )}
                                             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                                 <button onClick={(e) => { e.stopPropagation(); openTeamModal(team); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all">
                                                     <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -1882,7 +1969,36 @@ export default function EditionDetailPage() {
                             <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
                                 <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
                                 <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
-                                <Input label="Logo URL" placeholder="https://example.com/logo.png" value={teamForm.logo_url} onChange={(e) => setTeamForm({ ...teamForm, logo_url: e.target.value })} />
+
+                                {/* Team Logo Uploader */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
+                                    <div
+                                        onClick={() => teamLogoRef.current?.click()}
+                                        className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
+                                    >
+                                        <input
+                                            type="file"
+                                            ref={teamLogoRef}
+                                            onChange={handleTeamLogoChange}
+                                            accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
+                                            className="hidden"
+                                        />
+                                        {teamForm.logoPreview ? (
+                                            <img src={teamForm.logoPreview} alt="Team Logo Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <>
+                                                <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                    </svg>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Logo</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <Button type="submit" disabled={isSavingTeam} className="w-full">
                                     {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
                                 </Button>
@@ -1926,9 +2042,33 @@ function EditDetailsForm({ edition, id, theme, onSaved }) {
         logoPreview: edition.logo || null,
     });
 
-    const handleLogoChange = (e) => {
+    const handleLogoChange = async (e) => {
         const file = e.target.files[0];
-        if (file) setFormData(prev => ({ ...prev, logo: file, logoPreview: URL.createObjectURL(file) }));
+        if (!file) return;
+
+        console.log("📸 Edition Logo Upload Started:", {
+            fileName: file.name,
+            fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+            fileType: file.type
+        });
+
+        // Show preview immediately
+        const preview = URL.createObjectURL(file);
+        setFormData(prev => ({ ...prev, logo: file, logoPreview: preview }));
+
+        // Upload to GCP
+        toast.loading("Uploading logo to GCP...", { id: "edition-logo-upload" });
+        const uploadResult = await uploadImageToGCP(file, "editions");
+
+        if (uploadResult.success) {
+            console.log("✅ Edition logo uploaded! GCP URL:", uploadResult.url);
+            toast.success("Logo uploaded successfully!", { id: "edition-logo-upload" });
+            // Update with GCP URL
+            setFormData(prev => ({ ...prev, logoPreview: uploadResult.url }));
+        } else {
+            console.error("❌ Edition logo upload failed:", uploadResult.error);
+            toast.error(uploadResult.error || "Failed to upload logo", { id: "edition-logo-upload" });
+        }
     };
 
     const handleSave = async (e) => {
@@ -1974,7 +2114,7 @@ function EditDetailsForm({ edition, id, theme, onSaved }) {
                 <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Edition Logo</label>
                     <div onClick={() => fileRef.current.click()} className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden">
-                        <input type="file" ref={fileRef} onChange={handleLogoChange} accept="image/*" className="hidden" />
+                        <input type="file" ref={fileRef} onChange={handleLogoChange} accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp" className="hidden" />
                         {formData.logoPreview
                             ? <img src={formData.logoPreview} alt="Preview" className="w-full h-full object-cover" />
                             : <>

@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import apiClient from "@/lib/apiClient";
+import { uploadImageToGCP } from "@/lib/uploadToGCP";
 import { initialTheme } from "@/config/theme";
 
 const SkeletonRow = () => (
@@ -115,7 +116,7 @@ export default function CreateIPPage() {
     router.push("/dashboard");
   };
 
-  const handleLogoChange = (e) => {
+  const handleLogoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -133,9 +134,22 @@ export default function CreateIPPage() {
       return;
     }
 
-    // Clear error and set file
+    // Clear error and show preview
     setErrors(prev => ({ ...prev, logo: "" }));
-    setFormData({ ...formData, logo: file, logoPreview: URL.createObjectURL(file) });
+    const preview = URL.createObjectURL(file);
+    setFormData({ ...formData, logo: file, logoPreview: preview });
+
+    // Upload to GCP
+    toast.loading("Uploading logo...", { id: "logo-upload" });
+    const uploadResult = await uploadImageToGCP(file, "logos");
+
+    if (uploadResult.success) {
+      toast.success("Logo uploaded successfully!", { id: "logo-upload" });
+      setFormData(prev => ({ ...prev, logo: file, logoPreview: uploadResult.url }));
+    } else {
+      toast.error(uploadResult.error || "Failed to upload logo", { id: "logo-upload" });
+      setErrors(prev => ({ ...prev, logo: uploadResult.error || "Upload failed" }));
+    }
   };
 
   const handleNextStep = (e) => {

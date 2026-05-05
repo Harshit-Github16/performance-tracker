@@ -8,6 +8,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
+import { uploadImageToGCP } from "@/lib/uploadToGCP";
 import Card from "@/components/Card";
 
 const hasPermission = (code) => {
@@ -104,9 +105,33 @@ export default function EditionsPage() {
         });
     };
 
-    const handleLogoChange = (e) => {
+    const handleLogoChange = async (e) => {
         const file = e.target.files[0];
-        if (file) setFormData(prev => ({ ...prev, logo: file, logoPreview: URL.createObjectURL(file) }));
+        if (!file) return;
+
+        console.log("📸 Edition Logo Upload Started:", {
+            fileName: file.name,
+            fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+            fileType: file.type
+        });
+
+        // Show preview immediately
+        const preview = URL.createObjectURL(file);
+        setFormData(prev => ({ ...prev, logo: file, logoPreview: preview }));
+
+        // Upload to GCP
+        toast.loading("Uploading logo to GCP...", { id: "edition-logo-upload" });
+        const uploadResult = await uploadImageToGCP(file, "editions");
+
+        if (uploadResult.success) {
+            console.log("✅ Edition logo uploaded! GCP URL:", uploadResult.url);
+            toast.success("Logo uploaded successfully!", { id: "edition-logo-upload" });
+            // Update with GCP URL
+            setFormData(prev => ({ ...prev, logoPreview: uploadResult.url }));
+        } else {
+            console.error("❌ Edition logo upload failed:", uploadResult.error);
+            toast.error(uploadResult.error || "Failed to upload logo", { id: "edition-logo-upload" });
+        }
     };
 
     const handleDateChange = (field, value) => {
@@ -324,7 +349,7 @@ export default function EditionsPage() {
                                     onClick={() => fileRef.current.click()}
                                     className="w-full h-28 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
                                 >
-                                    <input type="file" ref={fileRef} onChange={handleLogoChange} accept="image/*" className="hidden" />
+                                    <input type="file" ref={fileRef} onChange={handleLogoChange} accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp" className="hidden" />
                                     {formData.logoPreview ? (
                                         <img src={formData.logoPreview} alt="Preview" className="w-full h-full object-cover" />
                                     ) : (

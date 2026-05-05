@@ -35,6 +35,13 @@ const nextConfig = {
 
     // Change Requests (Approvals)
     NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT: "/change-requests",
+
+    // GCP Storage Configuration
+    NEXT_PUBLIC_GCP_PROJECT_ID: "yuva-kabaddi-series-prod",
+    NEXT_PUBLIC_GCP_BUCKET_NAME: "elev8-apps",
+    NEXT_PUBLIC_GCP_PROJECT_FOLDER: "performance-tracker",
+    NEXT_PUBLIC_GCP_BASE_URL: "https://storage.googleapis.com/elev8-apps",
+    NEXT_PUBLIC_UPLOAD_ENDPOINT: "/upload",
   },
 };
 
