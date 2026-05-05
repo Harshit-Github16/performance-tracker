@@ -10,7 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ServerPaginatedTable } from "@/components/ServerPaginatedTable";
 import apiClient from "@/lib/apiClient";
 
-const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Stats", "Edit Details"];
+const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Stats", "Requests", "Edit Details"];
 
 // Matches loaded from API now
 
@@ -112,6 +112,11 @@ export default function EditionDetailPage() {
     const [deletingMetricValueId, setDeletingMetricValueId] = useState(null);
     const deleteModalRef = useRef(null);
 
+    // Requests state
+    const [userRequests, setUserRequests] = useState([]);
+    const [requestsLoading, setRequestsLoading] = useState(false);
+    const [requestsStatusFilter, setRequestsStatusFilter] = useState("approved,rejected");
+
     useEffect(() => {
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
@@ -139,6 +144,13 @@ export default function EditionDetailPage() {
             fetchMetricValues();
         }
     }, [activeTab, statsPage, statsFilters]);
+
+    // Fetch user requests when Requests tab is active
+    useEffect(() => {
+        if (activeTab === "Requests") {
+            fetchUserRequests();
+        }
+    }, [activeTab, requestsStatusFilter]);
 
     const fetchEdition = async () => {
         const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
@@ -480,6 +492,50 @@ export default function EditionDetailPage() {
             toast.error(result.error || "Failed to load metric values.");
         }
         setStatsLoading(false);
+    };
+
+    // Requests functions
+    const fetchUserRequests = async () => {
+        setRequestsLoading(true);
+        const result = await apiClient.get(
+            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/all?submitted_by=${user?.id}&status=${requestsStatusFilter}`
+        );
+        if (result.success) {
+            const arr = result.data?.data || (Array.isArray(result.data) ? result.data : []);
+            setUserRequests(Array.isArray(arr) ? arr : []);
+        } else {
+            toast.error(result.error || "Failed to load requests.");
+        }
+        setRequestsLoading(false);
+    };
+
+    const getStatusBadge = (status) => {
+        const statusColors = {
+            pending: "bg-amber-500",
+            approved: "bg-emerald-500",
+            rejected: "bg-red-500"
+        };
+        const statusLabels = {
+            pending: "Pending",
+            approved: "Approved",
+            rejected: "Rejected"
+        };
+        return (
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white ${statusColors[status] || "bg-gray-500"}`}>
+                {statusLabels[status] || status}
+            </span>
+        );
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return "—";
+        return new Date(dateString).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
     };
 
     const openEditMetricValueModal = (metricValue) => {
@@ -1444,6 +1500,140 @@ export default function EditionDetailPage() {
                                 totalPages={statsTotalPages}
                                 onPageChange={setStatsPage}
                                 emptyMessage="No metric values found."
+                            />
+                        )}
+                    </div>
+                )}
+
+                {/* REQUESTS */}
+                {activeTab === "Requests" && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Your Change Requests</p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setRequestsStatusFilter("approved,rejected")}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "approved,rejected" ? "text-white" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
+                                    style={requestsStatusFilter === "approved,rejected" ? { backgroundColor: theme.primary_color } : {}}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setRequestsStatusFilter("approved")}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "approved" ? "text-white bg-emerald-500" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
+                                >
+                                    Approved
+                                </button>
+                                <button
+                                    onClick={() => setRequestsStatusFilter("rejected")}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "rejected" ? "text-white bg-red-500" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
+                                >
+                                    Rejected
+                                </button>
+                            </div>
+                        </div>
+
+                        {requestsLoading ? (
+                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+                                ))}
+                            </div>
+                        ) : (
+                            <DataTable
+                                columns={[
+                                    {
+                                        header: "#",
+                                        accessor: "index",
+                                        render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
+                                    },
+                                    {
+                                        header: "Type",
+                                        accessor: "type",
+                                        render: (row) => (
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.type === "new_entry"
+                                                    ? "bg-blue-100 text-blue-700"
+                                                    : "bg-purple-100 text-purple-700"
+                                                }`}>
+                                                {row.type === "new_entry" ? "New Entry" : "Correction"}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Metric",
+                                        accessor: "metric",
+                                        render: (row) => (
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-gray-700">
+                                                    {row.metric_value?.metric_definition?.label || "—"}
+                                                </span>
+                                                <span className="text-[10px] text-gray-400">
+                                                    Edition: {row.metric_value?.edition?.name || "—"}
+                                                </span>
+                                            </div>
+                                        )
+                                    },
+                                    {
+                                        header: "Value",
+                                        accessor: "value",
+                                        render: (row) => (
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-gray-950">{row.proposed_value}</span>
+                                                {row.original_value && (
+                                                    <span className="text-xs text-gray-400 line-through">{row.original_value}</span>
+                                                )}
+                                            </div>
+                                        )
+                                    },
+                                    {
+                                        header: "Match",
+                                        accessor: "match",
+                                        render: (row) => {
+                                            const match = row.metric_value?.match;
+                                            if (!match) return <span className="text-xs text-gray-400">—</span>;
+                                            return (
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-gray-700">
+                                                        Match #{match.match_no || "—"}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-500">
+                                                        Round: {match.round || "—"}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-600 font-medium">
+                                                        {match.team1?.name || "Team 1"} vs {match.team2?.name || "Team 2"}
+                                                    </span>
+                                                </div>
+                                            );
+                                        }
+                                    },
+                                    {
+                                        header: "Player",
+                                        accessor: "player",
+                                        render: (row) => (
+                                            <span className="text-xs font-medium text-gray-600">
+                                                {row.metric_value?.person?.full_name || "—"}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Submitted",
+                                        accessor: "submitted_at",
+                                        render: (row) => (
+                                            <span className="text-xs text-gray-500 font-medium">
+                                                {formatDate(row.submitted_at)}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: "Status",
+                                        accessor: "status",
+                                        align: "center",
+                                        render: (row) => getStatusBadge(row.status)
+                                    }
+                                ]}
+                                data={userRequests.map((request, idx) => ({ ...request, index: idx + 1 }))}
+                                emptyMessage={`No ${requestsStatusFilter.replace(",", " or ")} requests found.`}
+                                itemsPerPage={10}
                             />
                         )}
                     </div>
