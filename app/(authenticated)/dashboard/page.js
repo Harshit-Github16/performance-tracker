@@ -137,7 +137,7 @@ export default function DashboardPage() {
   const [selectedEditionId, setSelectedEditionId] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [isIpManager, setIsIpManager] = useState(false);
+  const [showIpDashboard, setShowIpDashboard] = useState(false);
 
   const P = theme.primary_color;
   const S = theme.secondary_color;
@@ -145,20 +145,21 @@ export default function DashboardPage() {
   const PIE_COLORS = [P, S, `${P}80`, `${S}80`, `${P}40`];
 
   useEffect(() => {
-    // Check if user is IP manager (not super admin)
-    const isSuperAdmin = user?.role === "super_admin";
-    setIsIpManager(!isSuperAdmin);
+    // Check if active IP is selected
+    const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+    const shouldShowIpDashboard = !!activeIp;
+    setShowIpDashboard(shouldShowIpDashboard);
 
-    if (!isSuperAdmin) {
+    if (shouldShowIpDashboard) {
       fetchEditions();
     }
   }, [user]);
 
   useEffect(() => {
-    if (isIpManager && selectedEditionId) {
+    if (showIpDashboard && selectedEditionId) {
       fetchDashboardData();
     }
-  }, [selectedEditionId, isIpManager]);
+  }, [selectedEditionId, showIpDashboard]);
 
   const fetchEditions = async () => {
     const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
@@ -229,8 +230,8 @@ export default function DashboardPage() {
             <p className="text-[13px] text-gray-400">Tournament performance at a glance.</p>
           </div>
 
-          {/* Edition Selector for IP Managers */}
-          {isIpManager && editions.length > 0 && (
+          {/* Edition Selector - Shows when IP is selected */}
+          {showIpDashboard && editions.length > 0 && (
             <div className="flex items-center gap-3">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Edition:</label>
               <select
@@ -251,7 +252,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Loading State */}
-      {isIpManager && loading && (
+      {showIpDashboard && loading && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
             <svg className="animate-spin h-8 w-8 mb-3" style={{ color: P }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -263,8 +264,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Dashboard Content for IP Managers */}
-      {isIpManager && !loading && dashboardData && (
+      {/* Dashboard Content - Shows when IP is selected */}
+      {showIpDashboard && !loading && dashboardData && (
         <>
           {/* Property & Edition Info */}
           <div className="px-4">
@@ -450,8 +451,8 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Super Admin Dashboard - Existing Dummy Data */}
-      {!isIpManager && (
+      {/* Super Admin Dashboard - Shows only when NO IP is selected */}
+      {!showIpDashboard && (
         <>
           {/* Stat Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4">
