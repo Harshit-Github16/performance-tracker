@@ -36,6 +36,9 @@ const nextConfig = {
     // Change Requests (Approvals)
     NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT: "/change-requests",
 
+    // Analytics
+    NEXT_PUBLIC_ANALYTICS_IP_DASHBOARD_ENDPOINT: "/analytics/ip-dashboard",
+
     // GCP Storage Configuration
     NEXT_PUBLIC_GCP_PROJECT_ID: "yuva-kabaddi-series-prod",
     NEXT_PUBLIC_GCP_BUCKET_NAME: "elev8-apps",

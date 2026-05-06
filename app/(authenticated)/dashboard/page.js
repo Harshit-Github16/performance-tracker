@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { useTheme } from "@/components/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
+import { toast } from "sonner";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -125,14 +128,73 @@ const ChartCard = ({ title, subtitle, children, refEl, className = "" }) => (
 
 export default function DashboardPage() {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const pageRef = useRef(null);
   const statsRef = useRef([]);
   const chartsRef = useRef([]);
+
+  const [editions, setEditions] = useState([]);
+  const [selectedEditionId, setSelectedEditionId] = useState("");
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isIpManager, setIsIpManager] = useState(false);
 
   const P = theme.primary_color;
   const S = theme.secondary_color;
 
   const PIE_COLORS = [P, S, `${P}80`, `${S}80`, `${P}40`];
+
+  useEffect(() => {
+    // Check if user is IP manager (not super admin)
+    const isSuperAdmin = user?.role === "super_admin";
+    setIsIpManager(!isSuperAdmin);
+
+    if (!isSuperAdmin) {
+      fetchEditions();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (isIpManager && selectedEditionId) {
+      fetchDashboardData();
+    }
+  }, [selectedEditionId, isIpManager]);
+
+  const fetchEditions = async () => {
+    const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+    if (!activeIp) return;
+
+    const result = await apiClient.get(
+      `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}?property_id=${activeIp.id}`
+    );
+
+    if (result.success) {
+      const editionsData = result.data?.data?.editions || result.data?.editions || result.data?.data || [];
+      setEditions(Array.isArray(editionsData) ? editionsData : []);
+
+      // Auto-select first edition if available
+      if (editionsData.length > 0) {
+        setSelectedEditionId(editionsData[0].id);
+      }
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    if (!selectedEditionId) return;
+
+    setLoading(true);
+    const result = await apiClient.get(
+      `${process.env.NEXT_PUBLIC_ANALYTICS_IP_DASHBOARD_ENDPOINT}?edition_id=${selectedEditionId}`
+    );
+
+    if (result.success) {
+      setDashboardData(result.data?.data || result.data);
+      console.log("Dashboard Data:", result.data?.data || result.data);
+    } else {
+      toast.error(result.error || "Failed to load dashboard data");
+    }
+    setLoading(false);
+  };
 
   const STAT_CARDS = [
     { label: "Total IPs", value: "4", sub: "+1 this month", icon: "🏆", trend: 25, color: P },
@@ -157,224 +219,453 @@ export default function DashboardPage() {
 
       {/* Header */}
       <div className="px-4">
-        <div className="flex items-center space-x-2 mb-1">
-          <div className="h-1 w-6 rounded-full" style={{ backgroundColor: P }} />
-          <span className="text-[11px] font-bold uppercase tracking-[0.4em] text-gray-400">Overview</span>
-        </div>
-        <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Dashboard</h1>
-        <p className="text-[13px] text-gray-400">Tournament performance at a glance.</p>
-      </div>
-
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4">
-        {STAT_CARDS.map((c, i) => (
-          <StatCard key={i} {...c} index={i} refEl={el => statsRef.current[i] = el} />
-        ))}
-      </div>
-
-      {/* Row 1 — Area + Composed */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 px-4">
-
-        {/* Match Results — Stacked Area */}
-        <ChartCard title="Won vs Lost per Month" subtitle="Match Results" refEl={el => chartsRef.current[0] = el} className="lg:col-span-3">
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={matchData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gWon" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={P} stopOpacity={0.25} />
-                  <stop offset="100%" stopColor={P} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gLost" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={S} stopOpacity={0.2} />
-                  <stop offset="100%" stopColor={S} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gDraw" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={`${P}60`} stopOpacity={0.15} />
-                  <stop offset="100%" stopColor={`${P}60`} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="won" stroke={P} strokeWidth={2.5} fill="url(#gWon)" name="Won" dot={false} activeDot={{ r: 5, fill: P }} />
-              <Area type="monotone" dataKey="lost" stroke={S} strokeWidth={2} fill="url(#gLost)" name="Lost" dot={false} activeDot={{ r: 5, fill: S }} />
-              <Area type="monotone" dataKey="draw" stroke={`${P}60`} strokeWidth={1.5} fill="url(#gDraw)" name="Draw" dot={false} activeDot={{ r: 4, fill: `${P}60` }} />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-5 mt-3">
-            {[["Won", P], ["Lost", S], ["Draw", `${P}60`]].map(([l, c]) => (
-              <div key={l} className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
-                <span className="text-[11px] font-semibold text-gray-400">{l}</span>
-              </div>
-            ))}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center space-x-2 mb-1">
+              <div className="h-1 w-6 rounded-full" style={{ backgroundColor: P }} />
+              <span className="text-[11px] font-bold uppercase tracking-[0.4em] text-gray-400">Overview</span>
+            </div>
+            <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Dashboard</h1>
+            <p className="text-[13px] text-gray-400">Tournament performance at a glance.</p>
           </div>
-        </ChartCard>
 
-        {/* Win Rate — Radial */}
-        <ChartCard title="Overall Win Rate" subtitle="Season Stats" refEl={el => chartsRef.current[1] = el} className="lg:col-span-2">
-          <div className="flex flex-col items-center justify-center h-[220px] relative">
-            <ResponsiveContainer width="100%" height={200}>
-              <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" startAngle={220} endAngle={-40} data={[{ name: "Win Rate", value: 72, fill: P }, { name: "bg", value: 100, fill: "#f1f5f9" }]}>
-                <RadialBar dataKey="value" cornerRadius={8} background={false} />
-              </RadialBarChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-black text-gray-950">72%</span>
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Win Rate</span>
+          {/* Edition Selector for IP Managers */}
+          {isIpManager && editions.length > 0 && (
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Edition:</label>
+              <select
+                value={selectedEditionId}
+                onChange={(e) => setSelectedEditionId(e.target.value)}
+                className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all"
+                style={{ focusRingColor: P }}
+              >
+                {editions.map((edition) => (
+                  <option key={edition.id} value={edition.id}>
+                    {edition.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isIpManager && loading && (
+        <div className="px-4">
+          <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
+            <svg className="animate-spin h-8 w-8 mb-3" style={{ color: P }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="text-sm font-semibold text-gray-400">Loading dashboard data...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Dashboard Content for IP Managers */}
+      {isIpManager && !loading && dashboardData && (
+        <>
+          {/* Property & Edition Info */}
+          <div className="px-4">
+            <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-1">Property</p>
+                  <h2 className="text-2xl font-black text-gray-950">{dashboardData.property || "—"}</h2>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-1">Edition</p>
+                  <h3 className="text-xl font-bold text-gray-700">{dashboardData.edition || "—"}</h3>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            {[["72", "Wins", P], ["21", "Losses", S], ["7", "Draws", `${P}60`]].map(([v, l, c]) => (
-              <div key={l} className="flex flex-col items-center p-2 rounded-xl" style={{ backgroundColor: `${c}10` }}>
-                <span className="text-lg font-black" style={{ color: c }}>{v}</span>
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{l}</span>
-              </div>
-            ))}
+
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4">
+            {dashboardData.metrics?.slice(0, 8).map((metric, i) => {
+              const icons = ["🏆", "👥", "📍", "⚡", "📅", "💼", "👔", "🎯"];
+              const colors = [P, "#f59e0b", "#10b981", "#6366f1", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+              return (
+                <div key={i} ref={el => statsRef.current[i] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-3 relative overflow-hidden">
+                  <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full opacity-[0.06]" style={{ backgroundColor: colors[i % colors.length] }} />
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${colors[i % colors.length]}15` }}>
+                    {icons[i % icons.length]}
+                  </div>
+                  <div>
+                    <p className="text-3xl font-black text-gray-950 tracking-tight">{metric.value?.toLocaleString() || 0}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em] mt-1 leading-tight">{metric.metric}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </ChartCard>
-      </div>
 
-      {/* Row 2 — Bar + Line + Pie */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
-
-        {/* Edition Stats — Grouped Bar */}
-        <ChartCard title="Teams & Matches per Edition" subtitle="Edition Stats" refEl={el => chartsRef.current[2] = el} className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={editionData} barGap={3} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="teams" fill={P} radius={[6, 6, 0, 0]} name="Teams" maxBarSize={28} />
-              <Bar dataKey="matches" fill={`${P}60`} radius={[6, 6, 0, 0]} name="Matches" maxBarSize={28} />
-              <Bar dataKey="players" fill={S} radius={[6, 6, 0, 0]} name="Players" maxBarSize={28} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-5 mt-3">
-            {[["Teams", P], ["Matches", `${P}60`], ["Players", S]].map(([l, c]) => (
-              <div key={l} className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
-                <span className="text-[11px] font-semibold text-gray-400">{l}</span>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-
-        {/* Role Distribution — Donut */}
-        <ChartCard title="Role Distribution" subtitle="User Roles" refEl={el => chartsRef.current[3] = el}>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={roleDistribution} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={4} dataKey="value" strokeWidth={0}>
-                {roleDistribution.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+          {/* Performance Metrics */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
+            {/* Raid & Tackle Stats */}
+            <ChartCard title="Raid & Tackle Statistics" subtitle="Performance" refEl={el => chartsRef.current[0] = el}>
+              <div className="space-y-4">
+                {dashboardData.metrics?.filter(m =>
+                  m.metric.includes("Raid") || m.metric.includes("Tackle")
+                ).slice(0, 6).map((metric, i) => (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold text-gray-600">{metric.metric}</span>
+                      <span className="text-sm font-black text-gray-950">{metric.value?.toLocaleString() || 0}</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.min((metric.value / 100) * 100, 100)}%`,
+                          backgroundColor: i % 2 === 0 ? P : S
+                        }}
+                      />
+                    </div>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-2 mt-2">
-            {roleDistribution.map((r, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                  <span className="text-[11px] font-semibold text-gray-500">{r.name}</span>
-                </div>
-                <span className="text-[11px] font-bold text-gray-950">{r.value}</span>
               </div>
-            ))}
-          </div>
-        </ChartCard>
-      </div>
+            </ChartCard>
 
-      {/* Row 3 — Performance + Activity + Top Teams */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
-
-        {/* Avg Score by Round — Composed */}
-        <ChartCard title="Avg Score by Round" subtitle="Performance" refEl={el => chartsRef.current[4] = el}>
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart data={performanceData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gScore" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={P} stopOpacity={0.15} />
-                  <stop offset="100%" stopColor={P} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="round" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="avg" fill="url(#gScore)" stroke="none" />
-              <Line type="monotone" dataKey="avg" stroke={P} strokeWidth={2.5} dot={{ fill: P, r: 4, strokeWidth: 0 }} name="Avg" activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="high" stroke={S} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="High" />
-              <Line type="monotone" dataKey="low" stroke={`${P}60`} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="Low" />
-            </ComposedChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-4 mt-3">
-            {[["Avg", P], ["High", S], ["Low", `${P}60`]].map(([l, c]) => (
-              <div key={l} className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c }} />
-                <span className="text-[11px] font-semibold text-gray-400">{l}</span>
+            {/* Special Achievements */}
+            <ChartCard title="Special Achievements" subtitle="Highlights" refEl={el => chartsRef.current[1] = el}>
+              <div className="grid grid-cols-2 gap-3">
+                {dashboardData.metrics?.filter(m =>
+                  m.metric.includes("Super") || m.metric.includes("High 5")
+                ).map((metric, i) => {
+                  const achievementColors = [P, S, "#f59e0b", "#10b981"];
+                  return (
+                    <div key={i} className="flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: `${achievementColors[i % achievementColors.length]}10` }}>
+                      <span className="text-2xl font-black" style={{ color: achievementColors[i % achievementColors.length] }}>
+                        {metric.value || 0}
+                      </span>
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-center mt-1 leading-tight">
+                        {metric.metric.replace("No. of ", "")}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        </ChartCard>
+            </ChartCard>
 
-        {/* Weekly Activity — Stacked Bar */}
-        <ChartCard title="Weekly User Activity" subtitle="Activity" refEl={el => chartsRef.current[5] = el}>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={activityData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="actions" fill={`${P}30`} radius={[6, 6, 0, 0]} name="Actions" maxBarSize={32} stackId="a" />
-              <Bar dataKey="logins" fill={P} radius={[6, 6, 0, 0]} name="Logins" maxBarSize={32} stackId="a" />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-4 mt-3">
-            {[["Logins", P], ["Actions", `${P}30`]].map(([l, c]) => (
-              <div key={l} className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c }} />
-                <span className="text-[11px] font-semibold text-gray-400">{l}</span>
+            {/* Cards Distribution */}
+            <ChartCard title="Disciplinary Cards" subtitle="Match Conduct" refEl={el => chartsRef.current[2] = el}>
+              <div className="space-y-4">
+                {dashboardData.metrics?.filter(m => m.metric.includes("Card")).map((metric, i) => {
+                  const cardColors = ["#10b981", "#f59e0b", "#ef4444"];
+                  const cardIcons = ["🟢", "🟡", "🔴"];
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: `${cardColors[i]}15` }}>
+                        {cardIcons[i]}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[11px] font-semibold text-gray-600">{metric.metric}</p>
+                        <p className="text-xl font-black text-gray-950">{metric.value || 0}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            </ChartCard>
           </div>
-        </ChartCard>
 
-        {/* Top Teams — Mini Leaderboard */}
-        <ChartCard title="Top Teams" subtitle="Leaderboard" refEl={el => chartsRef.current[6] = el}>
-          <div className="space-y-3">
-            {topTeams.map((t, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className={`text-[11px] font-black w-5 text-center ${i === 0 ? "text-amber-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-orange-400" : "text-gray-300"}`}>
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[12px] font-bold text-gray-950 truncate">{t.name}</span>
-                    <span className="text-[11px] font-black text-gray-950 ml-2">{t.points}pts</span>
+          {/* Staff & Financial Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
+            {/* Staff Distribution */}
+            <ChartCard title="Staff Distribution" subtitle="Team Personnel" refEl={el => chartsRef.current[3] = el}>
+              <div className="space-y-3">
+                {dashboardData.metrics?.filter(m =>
+                  m.metric.includes("Officials") ||
+                  m.metric.includes("Coaches") ||
+                  m.metric.includes("Managers") ||
+                  m.metric.includes("Physiotherapists")
+                ).map((metric, i) => {
+                  const staffIcons = ["👔", "🎓", "📋", "⚕️"];
+                  const staffColors = ["#6366f1", "#8b5cf6", "#ec4899", "#14b8a6"];
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: `${staffColors[i]}15` }}>
+                          {staffIcons[i]}
+                        </div>
+                        <span className="text-sm font-semibold text-gray-700">{metric.metric.replace("No. of ", "")}</span>
+                      </div>
+                      <span className="text-lg font-black text-gray-950">{metric.value || 0}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </ChartCard>
+
+            {/* Prize Money & Contributions */}
+            <ChartCard title="Financial Overview" subtitle="Prize Money & Contributions" refEl={el => chartsRef.current[4] = el}>
+              <div className="space-y-3">
+                {dashboardData.metrics?.filter(m =>
+                  m.metric.includes("Prize Money") || m.metric.includes("Contribution")
+                ).map((metric, i) => {
+                  const isTopPrize = i === 0;
+                  const prizeColors = ["#f59e0b", "#94a3b8", "#cd7f32", "#10b981", "#6366f1"];
+                  const prizeIcons = ["🥇", "🥈", "🥉", "💰", "💵"];
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: `${prizeColors[i % prizeColors.length]}10` }}>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg flex items-center justify-center text-xl" style={{ backgroundColor: `${prizeColors[i % prizeColors.length]}20` }}>
+                          {prizeIcons[i % prizeIcons.length]}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{metric.metric}</p>
+                          <p className="text-lg font-black" style={{ color: prizeColors[i % prizeColors.length] }}>
+                            ₹{metric.value?.toLocaleString() || 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ChartCard>
+          </div>
+
+          {/* Additional Metrics Table */}
+          <div className="px-4">
+            <ChartCard title="All Metrics Overview" subtitle="Complete Statistics" refEl={el => chartsRef.current[5] = el}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {dashboardData.metrics?.map((metric, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <span className="text-xs font-medium text-gray-600 flex-1">{metric.metric}</span>
+                    <span className="text-sm font-black text-gray-950 ml-2">
+                      {metric.metric.includes("Money") || metric.metric.includes("Contribution")
+                        ? `₹${metric.value?.toLocaleString() || 0}`
+                        : metric.value?.toLocaleString() || 0
+                      }
+                    </span>
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${(t.wins / 20) * 100}%`, backgroundColor: i === 0 ? P : `${P}70` }}
-                    />
-                  </div>
-                </div>
-                <span className={`text-[10px] font-bold w-12 text-right ${t.nrr.startsWith("+") ? "text-emerald-500" : "text-red-400"}`}>
-                  {t.nrr}
-                </span>
+                ))}
               </div>
+            </ChartCard>
+          </div>
+        </>
+      )}
+
+      {/* Super Admin Dashboard - Existing Dummy Data */}
+      {!isIpManager && (
+        <>
+          {/* Stat Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4">
+            {STAT_CARDS.map((c, i) => (
+              <StatCard key={i} {...c} index={i} refEl={el => statsRef.current[i] = el} />
             ))}
           </div>
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">NRR</span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Net Run Rate</span>
+
+          {/* Row 1 — Area + Composed */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 px-4">
+
+            {/* Match Results — Stacked Area */}
+            <ChartCard title="Won vs Lost per Month" subtitle="Match Results" refEl={el => chartsRef.current[0] = el} className="lg:col-span-3">
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={matchData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gWon" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={P} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={P} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gLost" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={S} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={S} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gDraw" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={`${P}60`} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={`${P}60`} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="won" stroke={P} strokeWidth={2.5} fill="url(#gWon)" name="Won" dot={false} activeDot={{ r: 5, fill: P }} />
+                  <Area type="monotone" dataKey="lost" stroke={S} strokeWidth={2} fill="url(#gLost)" name="Lost" dot={false} activeDot={{ r: 5, fill: S }} />
+                  <Area type="monotone" dataKey="draw" stroke={`${P}60`} strokeWidth={1.5} fill="url(#gDraw)" name="Draw" dot={false} activeDot={{ r: 4, fill: `${P}60` }} />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div className="flex items-center gap-5 mt-3">
+                {[["Won", P], ["Lost", S], ["Draw", `${P}60`]].map(([l, c]) => (
+                  <div key={l} className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
+                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+
+            {/* Win Rate — Radial */}
+            <ChartCard title="Overall Win Rate" subtitle="Season Stats" refEl={el => chartsRef.current[1] = el} className="lg:col-span-2">
+              <div className="flex flex-col items-center justify-center h-[220px] relative">
+                <ResponsiveContainer width="100%" height={200}>
+                  <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" startAngle={220} endAngle={-40} data={[{ name: "Win Rate", value: 72, fill: P }, { name: "bg", value: 100, fill: "#f1f5f9" }]}>
+                    <RadialBar dataKey="value" cornerRadius={8} background={false} />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-4xl font-black text-gray-950">72%</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Win Rate</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {[["72", "Wins", P], ["21", "Losses", S], ["7", "Draws", `${P}60`]].map(([v, l, c]) => (
+                  <div key={l} className="flex flex-col items-center p-2 rounded-xl" style={{ backgroundColor: `${c}10` }}>
+                    <span className="text-lg font-black" style={{ color: c }}>{v}</span>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{l}</span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
           </div>
-        </ChartCard>
-      </div>
+
+          {/* Row 2 — Bar + Line + Pie */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
+
+            {/* Edition Stats — Grouped Bar */}
+            <ChartCard title="Teams & Matches per Edition" subtitle="Edition Stats" refEl={el => chartsRef.current[2] = el} className="lg:col-span-2">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={editionData} barGap={3} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="teams" fill={P} radius={[6, 6, 0, 0]} name="Teams" maxBarSize={28} />
+                  <Bar dataKey="matches" fill={`${P}60`} radius={[6, 6, 0, 0]} name="Matches" maxBarSize={28} />
+                  <Bar dataKey="players" fill={S} radius={[6, 6, 0, 0]} name="Players" maxBarSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex items-center gap-5 mt-3">
+                {[["Teams", P], ["Matches", `${P}60`], ["Players", S]].map(([l, c]) => (
+                  <div key={l} className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
+                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+
+            {/* Role Distribution — Donut */}
+            <ChartCard title="Role Distribution" subtitle="User Roles" refEl={el => chartsRef.current[3] = el}>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={roleDistribution} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={4} dataKey="value" strokeWidth={0}>
+                    {roleDistribution.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2 mt-2">
+                {roleDistribution.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="text-[11px] font-semibold text-gray-500">{r.name}</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-gray-950">{r.value}</span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+          </div>
+
+          {/* Row 3 — Performance + Activity + Top Teams */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
+
+            {/* Avg Score by Round — Composed */}
+            <ChartCard title="Avg Score by Round" subtitle="Performance" refEl={el => chartsRef.current[4] = el}>
+              <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={performanceData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gScore" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={P} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={P} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="round" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="avg" fill="url(#gScore)" stroke="none" />
+                  <Line type="monotone" dataKey="avg" stroke={P} strokeWidth={2.5} dot={{ fill: P, r: 4, strokeWidth: 0 }} name="Avg" activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="high" stroke={S} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="High" />
+                  <Line type="monotone" dataKey="low" stroke={`${P}60`} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="Low" />
+                </ComposedChart>
+              </ResponsiveContainer>
+              <div className="flex items-center gap-4 mt-3">
+                {[["Avg", P], ["High", S], ["Low", `${P}60`]].map(([l, c]) => (
+                  <div key={l} className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c }} />
+                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+
+            {/* Weekly Activity — Stacked Bar */}
+            <ChartCard title="Weekly User Activity" subtitle="Activity" refEl={el => chartsRef.current[5] = el}>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={activityData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="actions" fill={`${P}30`} radius={[6, 6, 0, 0]} name="Actions" maxBarSize={32} stackId="a" />
+                  <Bar dataKey="logins" fill={P} radius={[6, 6, 0, 0]} name="Logins" maxBarSize={32} stackId="a" />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex items-center gap-4 mt-3">
+                {[["Logins", P], ["Actions", `${P}30`]].map(([l, c]) => (
+                  <div key={l} className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c }} />
+                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+
+            {/* Top Teams — Mini Leaderboard */}
+            <ChartCard title="Top Teams" subtitle="Leaderboard" refEl={el => chartsRef.current[6] = el}>
+              <div className="space-y-3">
+                {topTeams.map((t, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className={`text-[11px] font-black w-5 text-center ${i === 0 ? "text-amber-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-orange-400" : "text-gray-300"}`}>
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[12px] font-bold text-gray-950 truncate">{t.name}</span>
+                        <span className="text-[11px] font-black text-gray-950 ml-2">{t.points}pts</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${(t.wins / 20) * 100}%`, backgroundColor: i === 0 ? P : `${P}70` }}
+                        />
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold w-12 text-right ${t.nrr.startsWith("+") ? "text-emerald-500" : "text-red-400"}`}>
+                      {t.nrr}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">NRR</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Net Run Rate</span>
+              </div>
+            </ChartCard>
+          </div>
+
+        </>
+      )}
 
     </div>
   );
