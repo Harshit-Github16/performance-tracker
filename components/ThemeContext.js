@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { initialTheme } from "@/config/theme";
 
 const ThemeContext = createContext();
@@ -13,20 +13,26 @@ export function ThemeProvider({ children }) {
     try {
       const savedTheme = localStorage.getItem('elev8_theme');
       if (savedTheme) {
-        setTheme({ ...initialTheme, ...JSON.parse(savedTheme) });
+        const parsed = JSON.parse(savedTheme);
+        setTheme({ ...initialTheme, ...parsed });
       }
     } catch (e) {
       console.error("Failed to parse theme", e);
+      localStorage.removeItem('elev8_theme');
     }
   }, []);
 
-  const updateTheme = (newTheme) => {
+  const updateTheme = useCallback((newTheme) => {
     setTheme((prev) => {
       const updated = { ...prev, ...newTheme };
-      localStorage.setItem('elev8_theme', JSON.stringify(updated));
+      try {
+        localStorage.setItem('elev8_theme', JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed to save theme", e);
+      }
       return updated;
     });
-  };
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -37,11 +43,22 @@ export function ThemeProvider({ children }) {
     root.style.setProperty("--tournament-name", `"${theme.tournamentName}"`);
   }, [theme]);
 
+  const contextValue = useMemo(
+    () => ({ theme, updateTheme }),
+    [theme, updateTheme]
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme, updateTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
-export const useTheme = () => useContext(ThemeContext);
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error("useTheme must be used within a ThemeProvider");
+  }
+  return context;
+};

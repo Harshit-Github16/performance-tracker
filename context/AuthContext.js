@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { clearTokenCache } from "@/lib/apiClient";
 
 const AuthContext = createContext();
 
@@ -11,21 +12,38 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Initialize auth state from localStorage once
   useEffect(() => {
-    const savedUser = localStorage.getItem("auth_user");
-    if (savedUser) setUser(JSON.parse(savedUser));
-    const savedIp = localStorage.getItem("active_ip");
-    if (savedIp) setActiveIpState(JSON.parse(savedIp));
-    setLoading(false);
+    const initializeAuth = () => {
+      try {
+        const savedUser = localStorage.getItem("auth_user");
+        const savedIp = localStorage.getItem("active_ip");
+
+        if (savedUser) setUser(JSON.parse(savedUser));
+        if (savedIp) setActiveIpState(JSON.parse(savedIp));
+      } catch (error) {
+        console.error("Failed to parse auth data:", error);
+        // Clear corrupted data
+        localStorage.removeItem("auth_user");
+        localStorage.removeItem("active_ip");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  const setActiveIp = (ip) => {
+  const setActiveIp = useCallback((ip) => {
     setActiveIpState(ip);
-    if (ip) localStorage.setItem("active_ip", JSON.stringify(ip));
-    else localStorage.removeItem("active_ip");
-  };
+    if (ip) {
+      localStorage.setItem("active_ip", JSON.stringify(ip));
+    } else {
+      localStorage.removeItem("active_ip");
+    }
+  }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_LOGIN_ENDPOINT}`,
@@ -67,35 +85,54 @@ export function AuthProvider({ children }) {
     } catch (error) {
       return { success: false, error: "Network error. Please try again." };
     }
-  };
+  }, []);
 
-  const updateUserIps = (ips) => {
+  const updateUserIps = useCallback((ips) => {
     setUser((prev) => {
+      if (!prev) return prev;
       const updated = { ...prev, ips };
       localStorage.setItem("auth_user", JSON.stringify(updated));
       return updated;
     });
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     setActiveIpState(null);
-    localStorage.removeItem("auth_user");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("active_ip");
-    localStorage.removeItem("entered_as_manager");
-    localStorage.removeItem("elev8_theme");
-    localStorage.removeItem("user_permissions");
-    localStorage.removeItem("is_ip_owner");
-    localStorage.removeItem("metric_trees");
+    clearTokenCache();
+
+    // Clear all auth-related data
+    const keysToRemove = [
+      "auth_user",
+      "auth_token",
+      "active_ip",
+      "entered_as_manager",
+      "elev8_theme",
+      "user_permissions",
+      "is_ip_owner",
+      "metric_trees"
+    ];
+
+    keysToRemove.forEach(key => localStorage.removeItem(key));
     router.push("/login");
-  };
+  }, [router]);
+
+  const contextValue = useMemo(
+    () => ({ user, activeIp, setActiveIp, login, logout, loading, updateUserIps }),
+    [user, activeIp, setActiveIp, login, logout, loading, updateUserIps]
+  );
 
   return (
-    <AuthContext.Provider value={{ user, activeIp, setActiveIp, login, logout, loading, updateUserIps }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

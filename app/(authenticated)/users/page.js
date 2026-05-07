@@ -26,7 +26,7 @@ const SkeletonRow = () => (
 
 export default function UsersPage() {
     const { theme } = useTheme();
-    const { user } = useAuth();
+    const { user, activeIp } = useAuth();
     const canAdd = user?.role === "super_admin" || hasPermission("users:add");
 
     const [users, setUsers] = useState([]);
@@ -46,12 +46,16 @@ export default function UsersPage() {
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
         gsap.fromTo(tableRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.15 });
-        fetchUsers();
     }, []);
+
+    useEffect(() => {
+        if (user?.role === "super_admin" || activeIp) {
+            fetchUsers();
+        }
+    }, [activeIp, user]);
 
     const fetchUsers = async () => {
         setTableLoading(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const propertyId = activeIp?.id;
         const endpoint = propertyId
             ? `${process.env.NEXT_PUBLIC_USERS_ENDPOINT}?property_id=${propertyId}`
@@ -59,7 +63,6 @@ export default function UsersPage() {
 
         const result = await apiClient.get(endpoint);
         if (result.success) {
-            // API response: { status, statusCode, data: [...] }
             const arr = Array.isArray(result.data?.data)
                 ? result.data.data
                 : Array.isArray(result.data)
@@ -82,7 +85,6 @@ export default function UsersPage() {
 
     const fetchRoles = async () => {
         setRolesLoading(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const propertyId = activeIp?.id;
         const endpoint = propertyId
             ? `${process.env.NEXT_PUBLIC_ROLES_ENDPOINT}?property_id=${propertyId}`
@@ -95,7 +97,6 @@ export default function UsersPage() {
                     ? result.data
                     : [];
             setRoles(arr);
-            // Set first role as default selected
             if (arr.length > 0) setFormData(prev => ({ ...prev, role_id: arr[0].id }));
         }
         setRolesLoading(false);
@@ -122,7 +123,6 @@ export default function UsersPage() {
     const handleSave = async (e) => {
         e.preventDefault();
         setIsSaving(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         if (!activeIp?.id) {
             toast.error("No active property selected.");
             setIsSaving(false);
@@ -148,7 +148,6 @@ export default function UsersPage() {
     };
 
     const handleDeleteUser = async (accessId, fullName) => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const result = await apiClient.delete(
             `${process.env.NEXT_PUBLIC_USERS_ENDPOINT}/${accessId}`,
             { property_id: activeIp?.id }

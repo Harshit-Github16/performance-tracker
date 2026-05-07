@@ -128,7 +128,7 @@ const ChartCard = ({ title, subtitle, children, refEl, className = "" }) => (
 
 export default function DashboardPage() {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, activeIp } = useAuth();
   const pageRef = useRef(null);
   const statsRef = useRef([]);
   const chartsRef = useRef([]);
@@ -145,15 +145,13 @@ export default function DashboardPage() {
   const PIE_COLORS = [P, S, `${P}80`, `${S}80`, `${P}40`];
 
   useEffect(() => {
-    // Check if active IP is selected
-    const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
     const shouldShowIpDashboard = !!activeIp;
     setShowIpDashboard(shouldShowIpDashboard);
 
     if (shouldShowIpDashboard) {
       fetchEditions();
     }
-  }, [user]);
+  }, [activeIp]);
 
   useEffect(() => {
     if (showIpDashboard && selectedEditionId) {
@@ -162,7 +160,6 @@ export default function DashboardPage() {
   }, [selectedEditionId, showIpDashboard]);
 
   const fetchEditions = async () => {
-    const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
     if (!activeIp) return;
 
     const result = await apiClient.get(
@@ -190,7 +187,6 @@ export default function DashboardPage() {
 
     if (result.success) {
       setDashboardData(result.data?.data || result.data);
-      console.log("Dashboard Data:", result.data?.data || result.data);
     } else {
       toast.error(result.error || "Failed to load dashboard data");
     }
