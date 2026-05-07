@@ -25,6 +25,7 @@ export default function DashboardLayout({ children }) {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [hasMetricTrees, setHasMetricTrees] = useState(false);
   const [isIpOwner, setIsIpOwner] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -75,6 +76,9 @@ export default function DashboardLayout({ children }) {
       const ip = JSON.parse(savedIp);
       setActiveIp(ip);
     }
+
+    // Close mobile menu on route change
+    setIsMobileMenuOpen(false);
   }, [pathname]);
 
   // Auth guard
@@ -211,7 +215,15 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex h-screen bg-[#fafafa] font-[family-name:var(--font-poppins)] text-gray-900 overflow-hidden">
-      {/* Sidebar */}
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Desktop */}
       <aside className={`${isCollapsed ? "w-20" : "w-64"} bg-white border-r border-gray-100 hidden md:flex flex-col transition-all duration-300 relative z-30`}>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -272,26 +284,86 @@ export default function DashboardLayout({ children }) {
         </div>
       </aside>
 
+      {/* Sidebar - Mobile */}
+      <aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-100 flex flex-col transition-transform duration-300 z-50 md:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 h-20 flex items-center justify-between border-b border-gray-100">
+          <span className="text-[12.5px] font-bold text-gray-950 uppercase tracking-[0.2em]">
+            Performance Tracker
+          </span>
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <nav className="flex-1 px-4 space-y-1 mt-8 overflow-y-auto">
+          {filteredNav.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+            return (
+              <button
+                key={item.name}
+                onClick={() => {
+                  router.push(item.href);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${isActive ? "text-white shadow-lg shadow-black/5" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}
+                style={isActive ? { backgroundColor: theme.primary_color } : {}}
+              >
+                <div className={`${isActive ? "text-white" : "text-gray-400"}`}>{item.icon}</div>
+                <span className="ml-3">{item.name}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 mt-auto border-t border-gray-100">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center px-4 py-3 text-sm font-semibold text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="ml-3">Logout</span>
+          </button>
+        </div>
+      </aside>
+
       {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-10 z-20 shrink-0">
-          <div className="flex items-center space-x-4 relative">
+      <div className="flex-1 flex flex-col overflow-hidden relative z-10">
+        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-10 z-30 shrink-0 relative">
+          {/* Left Section */}
+          <div className="flex items-center space-x-3 md:space-x-4 min-w-0 flex-1">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-all shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
             {user?.role !== "super_admin" ? (
-              <div className="flex items-center space-x-4">
-                <div className="h-9 w-9 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center p-1.5 overflow-hidden shadow-sm">
+              <div className="flex items-center space-x-2 md:space-x-4 min-w-0">
+                <div className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center p-1.5 overflow-hidden shadow-sm shrink-0">
                   {activeIp?.logo
                     ? <img src={activeIp.logo} alt="IP Logo" className="h-full w-full object-contain" />
                     : <div className="h-full w-full rounded-full bg-gray-100 flex items-center justify-center"><svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                   }
                 </div>
-                <div className="flex flex-col">
+                <div className="flex flex-col min-w-0">
                   <div
                     className={`flex items-center space-x-2 ${user?.ips?.length > 1 ? 'cursor-pointer select-none' : ''}`}
                     onClick={() => user?.ips?.length > 1 && setIsSelectorOpen(!isSelectorOpen)}
                   >
-                    <h2 className="text-[15px] font-bold text-gray-950 tracking-[0.05em] uppercase opacity-95 leading-none">{activeIp?.name || "Unknown IP"}</h2>
+                    <h2 className="text-sm md:text-[15px] font-bold text-gray-950 tracking-[0.05em] uppercase opacity-95 leading-none truncate">{activeIp?.name || "Unknown IP"}</h2>
                     {user?.ips?.length > 1 && (
-                      <div className="relative flex items-center justify-center">
+                      <div className="relative flex items-center justify-center shrink-0">
                         <svg className={`w-3 h-3 text-gray-400 transition-transform duration-300 ${isSelectorOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
                         {isSelectorOpen && (
                           <div className="absolute top-8 left-0 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[100] animate-in fade-in zoom-in-95 duration-200">
@@ -318,26 +390,27 @@ export default function DashboardLayout({ children }) {
                       </div>
                     )}
                   </div>
-                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">Property Manager</span>
+                  <span className="text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1 hidden md:block">Property Manager</span>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col">
-                <h2 className="text-[15px] font-bold text-gray-950 tracking-[0.08em] uppercase opacity-95 leading-none">
+              <div className="flex flex-col min-w-0">
+                <h2 className="text-sm md:text-[15px] font-bold text-gray-950 tracking-[0.08em] uppercase opacity-95 leading-none truncate">
                   {mounted && enteredAsManager && activeIp ? activeIp.name : "Super Admin"}
                 </h2>
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+                <span className="text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5 hidden md:block">
                   {mounted && enteredAsManager ? "Property Manager" : "Global System Console"}
                 </span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center space-x-6">
+          {/* Right Section */}
+          <div className="flex items-center space-x-2 md:space-x-6 shrink-0">
             {mounted && user?.role === "super_admin" && enteredAsManager && (
               <button
                 onClick={handleSwitchToSuperAdmin}
-                className="relative flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest text-white transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.97] overflow-hidden"
+                className="hidden md:flex relative items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest text-white transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.97] overflow-hidden"
                 style={{ backgroundColor: theme.primary_color }}
               >
                 <span className="absolute inset-0 opacity-20" style={{ background: "linear-gradient(135deg, #fff 0%, transparent 60%)" }} />
@@ -345,14 +418,14 @@ export default function DashboardLayout({ children }) {
                 <span className="relative z-10">Switch to Super Admin</span>
               </button>
             )}
-            <div className="flex flex-col items-end mr-1">
-              <span className="text-[13px] font-bold text-gray-950 uppercase tracking-tight leading-none">{user?.username || "Admin"}</span>
+            <div className="hidden md:flex flex-col items-end mr-1 min-w-0">
+              <span className="text-[13px] font-bold text-gray-950 uppercase tracking-tight leading-none truncate">{user?.username || "Admin"}</span>
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.1em] mt-1">{user?.role === "super_admin" ? "Role: Super Admin" : "Role: IP Admin"}</span>
             </div>
             <div className="relative">
               <div
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="h-10 w-10 rounded-full border border-gray-100 bg-gray-50 flex items-center justify-center p-1 cursor-pointer hover:bg-gray-100 transition-all shadow-sm"
+                className="h-9 w-9 md:h-10 md:w-10 rounded-full border border-gray-100 bg-gray-50 flex items-center justify-center p-1 cursor-pointer hover:bg-gray-100 transition-all shadow-sm shrink-0"
               >
                 <div className="h-full w-full rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: theme.primary_color }}>
                   {user?.avatar_initials || "AD"}
@@ -387,7 +460,7 @@ export default function DashboardLayout({ children }) {
 
         {/* Change Password Modal */}
         {isChangePasswordOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="p-6 border-b border-gray-50 flex justify-between items-center">
                 <div>
@@ -487,9 +560,9 @@ export default function DashboardLayout({ children }) {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-6 md:px-10 md:py-6 bg-[#fafafa] relative">
+        <main className="flex-1 overflow-y-auto p-6 md:px-10 md:py-6 bg-[#fafafa] relative z-0">
           <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-          <div className="w-full h-full relative z-10">{children}</div>
+          <div className="w-full h-full relative z-[1]">{children}</div>
         </main>
       </div>
     </div>

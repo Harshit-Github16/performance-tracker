@@ -1746,7 +1746,7 @@ export default function EditionDetailPage() {
 
             {/* Edit Metric Value Modal */}
             {isEditingMetricValue && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={editMetricValueModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                             <div>
@@ -1775,7 +1775,7 @@ export default function EditionDetailPage() {
 
             {/* Delete Confirmation Modal */}
             {isDeleteModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={deleteModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-red-50/30">
                             <div className="flex items-center gap-3">
@@ -1818,7 +1818,7 @@ export default function EditionDetailPage() {
 
             {/* Match Modal */}
             {isMatchModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={modalRef} className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20 sticky top-0 bg-white">
                             <div>
@@ -1868,7 +1868,7 @@ export default function EditionDetailPage() {
             {/* Player Modal */}
             {
                 isPlayerModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                         <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                             <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                                 <div>
@@ -1919,7 +1919,7 @@ export default function EditionDetailPage() {
             {/* Sponsor Modal */}
             {
                 isSponsorModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                         <div ref={sponsorModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                             <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                                 <div>
@@ -1955,7 +1955,7 @@ export default function EditionDetailPage() {
             {/* Team Modal */}
             {
                 isTeamModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                         <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                             <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                                 <div>

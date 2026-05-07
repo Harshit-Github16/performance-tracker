@@ -415,7 +415,7 @@ export default function CreateIPPage() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 border border-gray-100/50">
             <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
               <div>
@@ -655,7 +655,7 @@ export default function CreateIPPage() {
       )}
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
           <div ref={deleteModalRef} className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
             <div className="p-6 flex flex-col items-center text-center">
               {/* Warning icon */}
