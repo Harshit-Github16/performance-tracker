@@ -1748,7 +1748,7 @@ export default function EditionDetailPage() {
             </div>
 
             {/* Edit Metric Value Modal */}
-            {mounted && isEditingMetricValue && createPortal(
+            {mounted && isEditingMetricValue && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={editMetricValueModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
@@ -1773,11 +1773,11 @@ export default function EditionDetailPage() {
                             </Button>
                         </form>
                     </div>
-                </div>
+                </div>, document.body
             )}
 
             {/* Delete Confirmation Modal */}
-            {mounted && isDeleteModalOpen && createPortal(
+            {mounted && isDeleteModalOpen && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={deleteModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-red-50/30">
@@ -1816,10 +1816,8 @@ export default function EditionDetailPage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>, document.body
             )}
-
-            {/* Match Modal */}
             {mounted && isMatchModalOpen && createPortal(
                 <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={modalRef} className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
