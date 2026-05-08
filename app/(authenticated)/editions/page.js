@@ -330,7 +330,7 @@ export default function EditionsPage() {
 
             {/* Modal */}
             {mounted && isModalOpen && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                             <div>

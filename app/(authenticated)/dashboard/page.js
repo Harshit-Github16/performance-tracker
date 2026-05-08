@@ -128,7 +128,7 @@ const ChartCard = ({ title, subtitle, children, refEl, className = "" }) => (
 
 export default function DashboardPage() {
   const { theme } = useTheme();
-  const { user, activeIp } = useAuth();
+  const { user, activeIp, loading: authLoading } = useAuth();
   const pageRef = useRef(null);
   const statsRef = useRef([]);
   const chartsRef = useRef([]);
@@ -138,56 +138,130 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showIpDashboard, setShowIpDashboard] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const P = theme.primary_color;
   const S = theme.secondary_color;
 
   const PIE_COLORS = [P, S, `${P}80`, `${S}80`, `${P}40`];
 
+  // Initialize on mount - wait for AuthContext to load
   useEffect(() => {
-    const shouldShowIpDashboard = !!activeIp;
+    // Wait for AuthContext to finish loading
+    if (authLoading) {
+      console.log("⏳ Waiting for AuthContext to load...");
+      return;
+    }
+
+    if (mounted) return; // Already initialized
+
+    setMounted(true);
+
+    // IMPORTANT: Always check localStorage first for immediate state
+    const storedIp = localStorage.getItem("active_ip");
+    const parsedStoredIp = storedIp ? JSON.parse(storedIp) : null;
+
+    // Use stored IP if available, otherwise wait for AuthContext
+    const currentActiveIp = parsedStoredIp || activeIp;
+
+    console.log("🔍 Dashboard Init:", {
+      authLoading,
+      activeIpFromContext: activeIp,
+      parsedStoredIp,
+      currentActiveIp,
+      willShowIpDashboard: !!currentActiveIp
+    });
+
+    const shouldShowIpDashboard = !!currentActiveIp;
     setShowIpDashboard(shouldShowIpDashboard);
 
     if (shouldShowIpDashboard) {
       fetchEditions();
     }
-  }, [activeIp]);
+  }, [authLoading, activeIp, mounted]);
+
+  // Update when activeIp changes from AuthContext
+  useEffect(() => {
+    if (!mounted) return;
+
+    // Check if activeIp changed and we need to update
+    const storedIp = localStorage.getItem("active_ip");
+    const parsedStoredIp = storedIp ? JSON.parse(storedIp) : null;
+    const currentActiveIp = activeIp || parsedStoredIp;
+
+    const shouldShowIpDashboard = !!currentActiveIp;
+
+    console.log("� Dashboard activeIp Update:", {
+      activeIp,
+      parsedStoredIp,
+      currentActiveIp,
+      shouldShowIpDashboard,
+      currentShowState: showIpDashboard
+    });
+
+    // Only update if state actually changed
+    if (shouldShowIpDashboard !== showIpDashboard) {
+      setShowIpDashboard(shouldShowIpDashboard);
+
+      if (shouldShowIpDashboard && editions.length === 0) {
+        fetchEditions();
+      }
+    }
+  }, [activeIp, mounted, showIpDashboard, editions.length]);
 
   useEffect(() => {
+    console.log("📊 Dashboard API Call Check:", { showIpDashboard, selectedEditionId });
     if (showIpDashboard && selectedEditionId) {
       fetchDashboardData();
     }
   }, [selectedEditionId, showIpDashboard]);
 
   const fetchEditions = async () => {
-    if (!activeIp) return;
+    // Get activeIp from AuthContext or localStorage
+    const currentActiveIp = activeIp || JSON.parse(localStorage.getItem("active_ip") || "null");
 
+    if (!currentActiveIp) {
+      console.log("❌ No activeIp found");
+      return;
+    }
+
+    console.log("📥 Fetching editions for IP:", currentActiveIp.id);
     const result = await apiClient.get(
-      `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}?property_id=${activeIp.id}`
+      `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}?property_id=${currentActiveIp.id}`
     );
 
     if (result.success) {
       const editionsData = result.data?.data?.editions || result.data?.editions || result.data?.data || [];
+      console.log("✅ Editions fetched:", editionsData);
       setEditions(Array.isArray(editionsData) ? editionsData : []);
 
       // Auto-select first edition if available
       if (editionsData.length > 0) {
+        console.log("🎯 Auto-selecting edition:", editionsData[0].id);
         setSelectedEditionId(editionsData[0].id);
       }
+    } else {
+      console.log("❌ Failed to fetch editions:", result.error);
     }
   };
 
   const fetchDashboardData = async () => {
-    if (!selectedEditionId) return;
+    if (!selectedEditionId) {
+      console.log("❌ No selectedEditionId");
+      return;
+    }
 
+    console.log("📊 Fetching dashboard data for edition:", selectedEditionId);
     setLoading(true);
     const result = await apiClient.get(
       `${process.env.NEXT_PUBLIC_ANALYTICS_IP_DASHBOARD_ENDPOINT}?edition_id=${selectedEditionId}`
     );
 
     if (result.success) {
+      console.log("✅ Dashboard data fetched:", result.data);
       setDashboardData(result.data?.data || result.data);
     } else {
+      console.log("❌ Failed to fetch dashboard data:", result.error);
       toast.error(result.error || "Failed to load dashboard data");
     }
     setLoading(false);

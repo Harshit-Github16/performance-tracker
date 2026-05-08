@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import gsap from "gsap";
@@ -42,6 +43,7 @@ export default function EditionDetailPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
 
+    const [mounted, setMounted] = useState(false);
     const [activeTab, setActiveTab] = useState("Matches");
     const [edition, setEdition] = useState(null);
     const [matches, setMatches] = useState([]);
@@ -120,6 +122,7 @@ export default function EditionDetailPage() {
     const [requestsStatusFilter, setRequestsStatusFilter] = useState("approved,rejected");
 
     useEffect(() => {
+        setMounted(true);
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
         gsap.fromTo(contentRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.1 });
@@ -989,10 +992,10 @@ export default function EditionDetailPage() {
                     <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">{edition?.name || "Loading..."}</h1>
                     {edition && <p className="text-[14px] text-gray-400">{fmt(edition.start_date)} → {fmt(edition.end_date)}</p>}
                 </div>
-                <div className="flex items-center gap-1 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm self-end">
+                <div className="flex items-center gap-1 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm self-end overflow-x-auto scrollbar-hide max-w-full">
                     {TABS.map((tab) => (
                         <button key={tab} onClick={() => switchTab(tab)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${activeTab === tab ? "text-white shadow-md" : "text-gray-400 hover:text-gray-950"}`}
+                            className={`px-3 md:px-4 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${activeTab === tab ? "text-white shadow-md" : "text-gray-400 hover:text-gray-950"}`}
                             style={activeTab === tab ? { backgroundColor: theme.primary_color } : {}}
                         >{tab}</button>
                     ))}
@@ -1745,8 +1748,8 @@ export default function EditionDetailPage() {
             </div>
 
             {/* Edit Metric Value Modal */}
-            {isEditingMetricValue && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+            {mounted && isEditingMetricValue && createPortal(
+                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={editMetricValueModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                             <div>
@@ -1774,8 +1777,8 @@ export default function EditionDetailPage() {
             )}
 
             {/* Delete Confirmation Modal */}
-            {isDeleteModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+            {mounted && isDeleteModalOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={deleteModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-red-50/30">
                             <div className="flex items-center gap-3">
@@ -1817,8 +1820,8 @@ export default function EditionDetailPage() {
             )}
 
             {/* Match Modal */}
-            {isMatchModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+            {mounted && isMatchModalOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={modalRef} className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20 sticky top-0 bg-white">
                             <div>
@@ -1861,151 +1864,148 @@ export default function EditionDetailPage() {
                             </Button>
                         </form>
                     </div>
-                </div>
-            )
-            }
+                </div>,
+                document.body
+            )}
 
             {/* Player Modal */}
-            {
-                isPlayerModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                        <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
-                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
-                                </div>
-                                <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
+            {mounted && isPlayerModalOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
+                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
                             </div>
-                            <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
-                                <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
-                                        <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
-                                        <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                            <option value="">No Team</option>
-                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                                <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
+                            <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
+                            <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
-                                    <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        <option value="KADAMBA">KADAMBA</option>
-                                        <option value="SISPORT">SISPORT</option>
-                                        <option value="VOTKBD">VOTKBD</option>
-                                        <option value="STARSELEV8">STARSELEV8</option>
-                                        <option value="YKS">YKS</option>
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
+                                    <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </div>
-                                <Button type="submit" disabled={isSavingPlayer} className="w-full">
-                                    {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
-                                </Button>
-                            </form>
-                        </div>
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
+                                    <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        <option value="">No Team</option>
+                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
+                                <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                    <option value="KADAMBA">KADAMBA</option>
+                                    <option value="SISPORT">SISPORT</option>
+                                    <option value="VOTKBD">VOTKBD</option>
+                                    <option value="STARSELEV8">STARSELEV8</option>
+                                    <option value="YKS">YKS</option>
+                                </select>
+                            </div>
+                            <Button type="submit" disabled={isSavingPlayer} className="w-full">
+                                {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
+                            </Button>
+                        </form>
                     </div>
-                )
-            }
+                </div>,
+                document.body
+            )}
 
             {/* Sponsor Modal */}
-            {
-                isSponsorModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                        <div ref={sponsorModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingSponsorId ? "Edit Sponsor" : "Add Sponsor"}</h3>
-                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Sponsorship Details</p>
-                                </div>
-                                <button onClick={closeSponsorModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
+            {mounted && isSponsorModalOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div ref={sponsorModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingSponsorId ? "Edit Sponsor" : "Add Sponsor"}</h3>
+                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Sponsorship Details</p>
                             </div>
-                            <form onSubmit={handleSaveSponsor} className="p-6 space-y-4">
-                                <Input label="Brand Name" placeholder="e.g. Nike" required value={sponsorForm.brand_name} onChange={(e) => setSponsorForm({ ...sponsorForm, brand_name: e.target.value })} />
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sponsor Type</label>
-                                    <select required value={sponsorForm.sponsor_type} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_type: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        <option value="TITLE">TITLE</option>
-                                        <option value="CO-SPONSOR">CO-SPONSOR</option>
-                                        <option value="ASSOCIATE">ASSOCIATE</option>
-                                        <option value="POWERED BY">POWERED BY</option>
-                                        <option value="OFFICIAL PARTNER">OFFICIAL PARTNER</option>
-                                    </select>
-                                </div>
-                                <Input label="Contract Value (₹)" type="number" placeholder="e.g. 50000" required value={sponsorForm.contract_value} onChange={(e) => setSponsorForm({ ...sponsorForm, contract_value: e.target.value })} />
-                                <Button type="submit" disabled={isSavingSponsor} className="w-full">
-                                    {isSavingSponsor ? "SAVING..." : editingSponsorId ? "SAVE CHANGES" : "ADD SPONSOR"}
-                                </Button>
-                            </form>
+                            <button onClick={closeSponsorModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
                         </div>
+                        <form onSubmit={handleSaveSponsor} className="p-6 space-y-4">
+                            <Input label="Brand Name" placeholder="e.g. Nike" required value={sponsorForm.brand_name} onChange={(e) => setSponsorForm({ ...sponsorForm, brand_name: e.target.value })} />
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sponsor Type</label>
+                                <select required value={sponsorForm.sponsor_type} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_type: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                    <option value="TITLE">TITLE</option>
+                                    <option value="CO-SPONSOR">CO-SPONSOR</option>
+                                    <option value="ASSOCIATE">ASSOCIATE</option>
+                                    <option value="POWERED BY">POWERED BY</option>
+                                    <option value="OFFICIAL PARTNER">OFFICIAL PARTNER</option>
+                                </select>
+                            </div>
+                            <Input label="Contract Value (₹)" type="number" placeholder="e.g. 50000" required value={sponsorForm.contract_value} onChange={(e) => setSponsorForm({ ...sponsorForm, contract_value: e.target.value })} />
+                            <Button type="submit" disabled={isSavingSponsor} className="w-full">
+                                {isSavingSponsor ? "SAVING..." : editingSponsorId ? "SAVE CHANGES" : "ADD SPONSOR"}
+                            </Button>
+                        </form>
                     </div>
-                )
-            }
+                </div>,
+                document.body
+            )}
 
             {/* Team Modal */}
-            {
-                isTeamModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                        <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingTeamId ? "Edit Team" : "Add Team"}</h3>
-                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Team Details</p>
-                                </div>
-                                <button onClick={closeTeamModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
+            {mounted && isTeamModalOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                    <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingTeamId ? "Edit Team" : "Add Team"}</h3>
+                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Team Details</p>
                             </div>
-                            <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
-                                <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
-                                <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
-
-                                {/* Team Logo Uploader */}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
-                                    <div
-                                        onClick={() => teamLogoRef.current?.click()}
-                                        className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
-                                    >
-                                        <input
-                                            type="file"
-                                            ref={teamLogoRef}
-                                            onChange={handleTeamLogoChange}
-                                            accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
-                                            className="hidden"
-                                        />
-                                        {teamForm.logoPreview ? (
-                                            <img src={teamForm.logoPreview} alt="Team Logo Preview" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <>
-                                                <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                    </svg>
-                                                </div>
-                                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Logo</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <Button type="submit" disabled={isSavingTeam} className="w-full">
-                                    {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
-                                </Button>
-                            </form>
+                            <button onClick={closeTeamModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
                         </div>
-                    </div >
-                )
+                        <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
+                            <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
+                            <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
+
+                            {/* Team Logo Uploader */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
+                                <div
+                                    onClick={() => teamLogoRef.current?.click()}
+                                    className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
+                                >
+                                    <input
+                                        type="file"
+                                        ref={teamLogoRef}
+                                        onChange={handleTeamLogoChange}
+                                        accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
+                                        className="hidden"
+                                    />
+                                    {teamForm.logoPreview ? (
+                                        <img src={teamForm.logoPreview} alt="Team Logo Preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <>
+                                            <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Logo</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <Button type="submit" disabled={isSavingTeam} className="w-full">
+                                {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
+                            </Button>
+                        </form>
+                    </div>
+                </div >
+            )
             }
         </div >
     );
