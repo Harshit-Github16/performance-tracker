@@ -503,7 +503,7 @@ export default function EditionDetailPage() {
     const fetchUserRequests = async () => {
         setRequestsLoading(true);
         const result = await apiClient.get(
-            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/all?submitted_by=${user?.id}&status=${requestsStatusFilter}`
+            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/all?submitted_by=${user?.id}&status=${requestsStatusFilter}&edition_id=${id}`
         );
         if (result.success) {
             const arr = result.data?.data || (Array.isArray(result.data) ? result.data : []);
