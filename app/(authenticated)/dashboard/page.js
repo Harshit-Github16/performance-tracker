@@ -149,7 +149,7 @@ export default function DashboardPage() {
   useEffect(() => {
     // Wait for AuthContext to finish loading
     if (authLoading) {
-      console.log("⏳ Waiting for AuthContext to load...");
+
       return;
     }
 
@@ -164,13 +164,7 @@ export default function DashboardPage() {
     // Use stored IP if available, otherwise wait for AuthContext
     const currentActiveIp = parsedStoredIp || activeIp;
 
-    console.log("🔍 Dashboard Init:", {
-      authLoading,
-      activeIpFromContext: activeIp,
-      parsedStoredIp,
-      currentActiveIp,
-      willShowIpDashboard: !!currentActiveIp
-    });
+
 
     const shouldShowIpDashboard = !!currentActiveIp;
     setShowIpDashboard(shouldShowIpDashboard);
@@ -191,13 +185,7 @@ export default function DashboardPage() {
 
     const shouldShowIpDashboard = !!currentActiveIp;
 
-    console.log("� Dashboard activeIp Update:", {
-      activeIp,
-      parsedStoredIp,
-      currentActiveIp,
-      shouldShowIpDashboard,
-      currentShowState: showIpDashboard
-    });
+
 
     // Only update if state actually changed
     if (shouldShowIpDashboard !== showIpDashboard) {
@@ -210,7 +198,7 @@ export default function DashboardPage() {
   }, [activeIp, mounted, showIpDashboard, editions.length]);
 
   useEffect(() => {
-    console.log("📊 Dashboard API Call Check:", { showIpDashboard, selectedEditionId });
+
     if (showIpDashboard && selectedEditionId) {
       fetchDashboardData();
     }
@@ -221,60 +209,55 @@ export default function DashboardPage() {
     const storedIp = localStorage.getItem("active_ip");
     const currentActiveIp = storedIp ? JSON.parse(storedIp) : activeIp;
 
-    console.log("📥 fetchEditions called with:", {
-      storedIp,
-      activeIp,
-      currentActiveIp,
-      hasId: !!currentActiveIp?.id
-    });
+
 
     if (!currentActiveIp?.id) {
-      console.log("❌ No activeIp found - cannot fetch editions");
+
       return;
     }
 
-    console.log("📥 Fetching editions for IP:", currentActiveIp.id);
+
     const result = await apiClient.get(
       `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}?property_id=${currentActiveIp.id}`
     );
 
-    console.log("📥 Editions API Response:", result);
+
 
     if (result.success) {
       const editionsData = result.data?.data?.editions || result.data?.editions || result.data?.data || [];
-      console.log("✅ Editions fetched:", editionsData);
+
       setEditions(Array.isArray(editionsData) ? editionsData : []);
 
       // Auto-select first edition if available
       if (editionsData.length > 0) {
-        console.log("🎯 Auto-selecting edition:", editionsData[0].id);
+
         setSelectedEditionId(editionsData[0].id);
       } else {
-        console.log("⚠️ No editions found for this IP");
+
       }
     } else {
-      console.log("❌ Failed to fetch editions:", result.error);
+
       toast.error("Failed to load editions");
     }
   };
 
   const fetchDashboardData = async () => {
     if (!selectedEditionId) {
-      console.log("❌ No selectedEditionId");
+
       return;
     }
 
-    console.log("📊 Fetching dashboard data for edition:", selectedEditionId);
+
     setLoading(true);
     const result = await apiClient.get(
       `${process.env.NEXT_PUBLIC_ANALYTICS_IP_DASHBOARD_ENDPOINT}?edition_id=${selectedEditionId}`
     );
 
     if (result.success) {
-      console.log("✅ Dashboard data fetched:", result.data);
+
       setDashboardData(result.data?.data || result.data);
     } else {
-      console.log("❌ Failed to fetch dashboard data:", result.error);
+
       toast.error(result.error || "Failed to load dashboard data");
     }
     setLoading(false);
