@@ -95,7 +95,7 @@ export default function ApprovalsPage() {
         setIsProcessing(prev => ({ ...prev, [requestId]: true }));
 
         const result = await apiClient.post(
-            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/process/${requestId}`,
+            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/process/${requestId}/${selectedEditionId}`,
             { status }
         );
 
