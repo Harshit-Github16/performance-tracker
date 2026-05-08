@@ -22,6 +22,11 @@ export default function ApprovalsPage() {
     const [statusFilter, setStatusFilter] = useState("pending");
     const [isProcessing, setIsProcessing] = useState({});
 
+    // Editions state
+    const [editions, setEditions] = useState([]);
+    const [selectedEditionId, setSelectedEditionId] = useState("");
+    const [editionsLoading, setEditionsLoading] = useState(false);
+
     const pageRef = useRef(null);
     const headerRef = useRef(null);
     const contentRef = useRef(null);
@@ -30,16 +35,52 @@ export default function ApprovalsPage() {
         gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
         gsap.fromTo(contentRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.1 });
+
+        // Fetch editions on mount
+        fetchEditions();
     }, []);
 
     useEffect(() => {
-        fetchChangeRequests();
-    }, [statusFilter]);
+        if (selectedEditionId) {
+            fetchChangeRequests();
+        }
+    }, [statusFilter, selectedEditionId]);
+
+    const fetchEditions = async () => {
+        setEditionsLoading(true);
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+
+        if (!activeIp?.id) {
+            toast.error("No active IP found");
+            setEditionsLoading(false);
+            return;
+        }
+
+        const result = await apiClient.get(
+            `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}?property_id=${activeIp.id}`
+        );
+
+        if (result.success) {
+            const editionsData = result.data?.data?.editions || result.data?.editions || result.data?.data || [];
+            const editionsArray = Array.isArray(editionsData) ? editionsData : [];
+            setEditions(editionsArray);
+
+            // Auto-select first edition
+            if (editionsArray.length > 0) {
+                setSelectedEditionId(editionsArray[0].id);
+            }
+        } else {
+            toast.error(result.error || "Failed to load editions");
+        }
+        setEditionsLoading(false);
+    };
 
     const fetchChangeRequests = useCallback(async () => {
+        if (!selectedEditionId) return;
+
         setLoading(true);
         const result = await apiClient.get(
-            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/all?status=${statusFilter}`
+            `${process.env.NEXT_PUBLIC_CHANGE_REQUESTS_ENDPOINT}/all?status=${statusFilter}&edition_id=${selectedEditionId}`
         );
         if (result.success) {
             const arr = result.data?.data || (Array.isArray(result.data) ? result.data : []);
@@ -48,7 +89,7 @@ export default function ApprovalsPage() {
             toast.error(result.error || "Failed to load change requests.");
         }
         setLoading(false);
-    }, [statusFilter]);
+    }, [statusFilter, selectedEditionId]);
 
     const handleProcessRequest = async (requestId, status) => {
         setIsProcessing(prev => ({ ...prev, [requestId]: true }));
@@ -126,21 +167,43 @@ export default function ApprovalsPage() {
                     <p className="text-[14px] text-gray-400 font-normal">Review and process change requests</p>
                 </div>
 
-                {/* Status Filter */}
-                <div className="flex items-center gap-2">
-                    {STATUS_OPTIONS.map((option) => (
-                        <button
-                            key={option.value}
-                            onClick={() => setStatusFilter(option.value)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 ${statusFilter === option.value
-                                ? "text-white shadow-md"
-                                : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950 hover:border-gray-200"
-                                }`}
-                            style={statusFilter === option.value ? { backgroundColor: theme.primary_color } : {}}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                    {/* Edition Selector */}
+                    {editions.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Edition:</label>
+                            <select
+                                value={selectedEditionId}
+                                onChange={(e) => setSelectedEditionId(e.target.value)}
+                                disabled={editionsLoading}
+                                className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ focusRingColor: theme.primary_color }}
+                            >
+                                {editions.map((edition) => (
+                                    <option key={edition.id} value={edition.id}>
+                                        {edition.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-2">
+                        {STATUS_OPTIONS.map((option) => (
+                            <button
+                                key={option.value}
+                                onClick={() => setStatusFilter(option.value)}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 ${statusFilter === option.value
+                                    ? "text-white shadow-md"
+                                    : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950 hover:border-gray-200"
+                                    }`}
+                                style={statusFilter === option.value ? { backgroundColor: theme.primary_color } : {}}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
