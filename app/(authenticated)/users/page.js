@@ -49,7 +49,8 @@ export default function UsersPage() {
     }, []);
 
     useEffect(() => {
-        if (user?.role === "super_admin" || activeIp) {
+        // Only fetch users if activeIp is available (for both super admin and IP admin)
+        if (activeIp?.id) {
             fetchUsers();
         }
     }, [activeIp, user]);
@@ -245,7 +246,19 @@ export default function UsersPage() {
             </div>
 
             <div ref={tableRef}>
-                {tableLoading ? (
+                {!activeIp?.id ? (
+                    <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] p-12">
+                        <div className="flex flex-col items-center justify-center text-center">
+                            <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                                <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest mb-2">No Property Selected</h3>
+                            <p className="text-xs text-gray-400">Please select a property to view and manage users.</p>
+                        </div>
+                    </div>
+                ) : tableLoading ? (
                     <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
                             <div className="h-10 w-64 bg-gray-100 rounded-xl animate-pulse" />

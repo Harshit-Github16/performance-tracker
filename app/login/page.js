@@ -124,6 +124,10 @@ export default function LoginPage() {
       const isIpOwner = items.some(item => item.role_id === 2);
       localStorage.setItem("is_ip_owner", JSON.stringify(isIpOwner));
 
+      // Store user role name from first property (assuming same role for all properties)
+      const userRole = items[0]?.role?.name || items[0]?.role || "IP Admin";
+      localStorage.setItem("user_role_name", userRole);
+
       // permissions is a flat array of code strings: ["users:add", "editions:view", ...]
       const permCodes = new Set();
       items.forEach(item => {
