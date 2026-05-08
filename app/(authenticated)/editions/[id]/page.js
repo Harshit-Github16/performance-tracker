@@ -352,7 +352,13 @@ export default function EditionDetailPage() {
         const result = await apiClient.post(process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT, payload);
 
         if (result.success) {
-            toast.success("Metric saved successfully!", {
+            // Show different message based on user role
+            const isSuperAdmin = user?.role === "super_admin";
+            const message = isSuperAdmin
+                ? "Changes applied"
+                : (result.data?.message || result.message || "Metric saved successfully!");
+
+            toast.success(message, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
             // Clear the row data
@@ -449,7 +455,13 @@ export default function EditionDetailPage() {
             const allSuccess = results.every(result => result.success);
 
             if (allSuccess) {
-                toast.success("Metrics saved successfully!", {
+                // Show different message based on user role
+                const isSuperAdmin = user?.role === "super_admin";
+                const message = isSuperAdmin
+                    ? "Changes applied"
+                    : (results[0]?.data?.message || results[0]?.message || "Metrics saved successfully!");
+
+                toast.success(message, {
                     style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
                 });
                 // Reset form
