@@ -43,8 +43,30 @@ export default function EditionDetailPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
 
-    // Permission checks
+    const [mounted, setMounted] = useState(false);
+    const [activeTab, setActiveTab] = useState("Matches");
+    const [edition, setEdition] = useState(null);
+    const [matches, setMatches] = useState([]);
+    const [teams, setTeams] = useState([]);
+    const [teamsLoading, setTeamsLoading] = useState(false);
+
+    // Permission checks - will be set after component mounts
+    const [canAddMatch, setCanAddMatch] = useState(false);
+    const [canEditMatch, setCanEditMatch] = useState(false);
+    const [canDeleteMatch, setCanDeleteMatch] = useState(false);
+    const [canAddTeam, setCanAddTeam] = useState(false);
+    const [canEditTeam, setCanEditTeam] = useState(false);
+    const [canDeleteTeam, setCanDeleteTeam] = useState(false);
+    const [canAddPlayer, setCanAddPlayer] = useState(false);
+    const [canEditPlayer, setCanEditPlayer] = useState(false);
+    const [canDeletePlayer, setCanDeletePlayer] = useState(false);
+    const [canAddDataEntry, setCanAddDataEntry] = useState(false);
+    const [canEditDataEntry, setCanEditDataEntry] = useState(false);
+    const [canDeleteDataEntry, setCanDeleteDataEntry] = useState(false);
+
+    // Permission check function
     const hasPermission = (permission) => {
+        if (typeof window === "undefined") return false;
         if (user?.role === "super_admin") return true;
         const isIpOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
         if (isIpOwner) return true;
@@ -52,25 +74,23 @@ export default function EditionDetailPage() {
         return perms.includes(permission);
     };
 
-    const canAddMatch = hasPermission("matches:add");
-    const canEditMatch = hasPermission("matches:edit");
-    const canDeleteMatch = hasPermission("matches:del");
-    const canAddTeam = hasPermission("teams:add");
-    const canEditTeam = hasPermission("teams:edit");
-    const canDeleteTeam = hasPermission("teams:del");
-    const canAddPlayer = hasPermission("players:add");
-    const canEditPlayer = hasPermission("players:edit");
-    const canDeletePlayer = hasPermission("players:del");
-    const canAddDataEntry = hasPermission("data_entry:add");
-    const canEditDataEntry = hasPermission("data_entry:edit");
-    const canDeleteDataEntry = hasPermission("data_entry:del");
-
-    const [mounted, setMounted] = useState(false);
-    const [activeTab, setActiveTab] = useState("Matches");
-    const [edition, setEdition] = useState(null);
-    const [matches, setMatches] = useState([]);
-    const [teams, setTeams] = useState([]);
-    const [teamsLoading, setTeamsLoading] = useState(false);
+    // Set permissions after mount
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            setCanAddMatch(hasPermission("matches:add"));
+            setCanEditMatch(hasPermission("matches:edit"));
+            setCanDeleteMatch(hasPermission("matches:del"));
+            setCanAddTeam(hasPermission("teams:add"));
+            setCanEditTeam(hasPermission("teams:edit"));
+            setCanDeleteTeam(hasPermission("teams:del"));
+            setCanAddPlayer(hasPermission("players:add"));
+            setCanEditPlayer(hasPermission("players:edit"));
+            setCanDeletePlayer(hasPermission("players:del"));
+            setCanAddDataEntry(hasPermission("data_entry:add"));
+            setCanEditDataEntry(hasPermission("data_entry:edit"));
+            setCanDeleteDataEntry(hasPermission("data_entry:del"));
+        }
+    }, [user]);
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [editingTeamId, setEditingTeamId] = useState(null);
     const [isSavingTeam, setIsSavingTeam] = useState(false);
