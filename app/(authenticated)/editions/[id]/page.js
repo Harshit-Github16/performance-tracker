@@ -43,6 +43,28 @@ export default function EditionDetailPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
 
+    // Permission checks
+    const hasPermission = (permission) => {
+        if (user?.role === "super_admin") return true;
+        const isIpOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+        if (isIpOwner) return true;
+        const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+        return perms.includes(permission);
+    };
+
+    const canAddMatch = hasPermission("matches:add");
+    const canEditMatch = hasPermission("matches:edit");
+    const canDeleteMatch = hasPermission("matches:del");
+    const canAddTeam = hasPermission("teams:add");
+    const canEditTeam = hasPermission("teams:edit");
+    const canDeleteTeam = hasPermission("teams:del");
+    const canAddPlayer = hasPermission("players:add");
+    const canEditPlayer = hasPermission("players:edit");
+    const canDeletePlayer = hasPermission("players:del");
+    const canAddDataEntry = hasPermission("data_entry:add");
+    const canEditDataEntry = hasPermission("data_entry:edit");
+    const canDeleteDataEntry = hasPermission("data_entry:del");
+
     const [mounted, setMounted] = useState(false);
     const [activeTab, setActiveTab] = useState("Matches");
     const [edition, setEdition] = useState(null);
@@ -74,8 +96,9 @@ export default function EditionDetailPage() {
     const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
     const [editingPlayerId, setEditingPlayerId] = useState(null);
     const [isSavingPlayer, setIsSavingPlayer] = useState(false);
-    const [playerForm, setPlayerForm] = useState({ full_name: "", role: "PLAYER", external_id: "", source: "KADAMBA", team_id: "" });
+    const [playerForm, setPlayerForm] = useState({ full_name: "", role: "PLAYER", external_id: "", source: "KADAMBA", team_id: "", image: null, imagePreview: "" });
     const playerModalRef = useRef(null);
+    const playerImageRef = useRef(null);
 
     // Sponsorships state
     const [sponsorships, setSponsorships] = useState([]);
@@ -281,13 +304,13 @@ export default function EditionDetailPage() {
         }
     };
 
-    const hasPermission = (permission) => {
-        // Super admin has all permissions
-        if (user?.role === "super_admin") return true;
-        // IP Owner has all permissions
-        if (isIpOwner) return true;
-        return userPermissions.includes(permission);
-    };
+    // const hasPermission = (permission) => {
+    //     // Super admin has all permissions
+    //     if (user?.role === "super_admin") return true;
+    //     // IP Owner has all permissions
+    //     if (isIpOwner) return true;
+    //     return userPermissions.includes(permission);
+    // };
 
     const canEditMetricField = () => {
         // Super admin can edit everything
@@ -580,7 +603,12 @@ export default function EditionDetailPage() {
         );
 
         if (result.success) {
-            const message = result.data?.message || result.message || "Metric value updated successfully!";
+            // Show different message based on user role
+            const isSuperAdmin = user?.role === "super_admin";
+            const message = isSuperAdmin
+                ? "Changes done"
+                : (result.data?.message || result.message || "Metric value updated successfully!");
+
             toast.success(message, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
@@ -597,7 +625,13 @@ export default function EditionDetailPage() {
         );
 
         if (result.success) {
-            toast.success("Metric value deleted!", {
+            // Show different message based on user role
+            const isSuperAdmin = user?.role === "super_admin";
+            const message = isSuperAdmin
+                ? "Changes done"
+                : (result.data?.message || result.message || "Metric value deleted!");
+
+            toast.success(message, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
             await fetchMetricValues();
@@ -697,10 +731,12 @@ export default function EditionDetailPage() {
                 external_id: player.external_id || "",
                 source: player.source || "manual",
                 team_id: player.team_id ? String(player.team_id) : (player.team?.id ? String(player.team.id) : (player.edition_participants?.[0]?.team_id ? String(player.edition_participants[0].team_id) : "")),
+                image: null,
+                imagePreview: player.image || "",
             });
         } else {
             setEditingPlayerId(null);
-            setPlayerForm({ full_name: "", role: "PLAYER", external_id: "", source: "KADAMBA", team_id: "" });
+            setPlayerForm({ full_name: "", role: "PLAYER", external_id: "", source: "KADAMBA", team_id: "", image: null, imagePreview: "" });
         }
         setIsPlayerModalOpen(true);
         requestAnimationFrame(() => {
@@ -716,6 +752,35 @@ export default function EditionDetailPage() {
         });
     };
 
+    const handlePlayerImageChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        console.log("📸 Player Image Upload Started:", {
+            fileName: file.name,
+            fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+            fileType: file.type
+        });
+
+        // Show preview immediately
+        const preview = URL.createObjectURL(file);
+        setPlayerForm(prev => ({ ...prev, image: file, imagePreview: preview }));
+
+        // Upload to GCP
+        toast.loading("Uploading image to GCP...", { id: "player-image-upload" });
+        const uploadResult = await uploadImageToGCP(file, "players");
+
+        if (uploadResult.success) {
+            console.log("✅ Player image uploaded! GCP URL:", uploadResult.url);
+            toast.success("Image uploaded successfully!", { id: "player-image-upload" });
+            // Update with GCP URL
+            setPlayerForm(prev => ({ ...prev, imagePreview: uploadResult.url }));
+        } else {
+            console.error("❌ Player image upload failed:", uploadResult.error);
+            toast.error(uploadResult.error || "Failed to upload image", { id: "player-image-upload" });
+        }
+    };
+
     const handleSavePlayer = async (e) => {
         e.preventDefault();
         setIsSavingPlayer(true);
@@ -729,6 +794,7 @@ export default function EditionDetailPage() {
             source: playerForm.source || "manual",
             edition_id: Number(id),
             team_id: playerForm.role == "OFFICIAL" ? null : (playerForm.team_id ? Number(playerForm.team_id) : undefined),
+            image: playerForm.imagePreview || "",
         };
         const result = editingPlayerId
             ? await apiClient.put(`${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${editingPlayerId}`, payload)
@@ -1022,9 +1088,10 @@ export default function EditionDetailPage() {
                     <div className="space-y-4">
                         <div className="flex justify-end">
                             <Button
-                                onClick={() => openMatchModal()}
+                                onClick={canAddMatch ? () => openMatchModal() : undefined}
+                                disabled={!canAddMatch || teams.length < 2}
+                                title={!canAddMatch ? "You don't have permission to add matches" : teams.length < 2 ? "Need at least 2 teams" : undefined}
                                 icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
-                                disabled={teams.length < 2}
                             >
                                 Add Match
                             </Button>
@@ -1137,10 +1204,14 @@ export default function EditionDetailPage() {
                                                 </div>
                                             )}
                                             <div className="flex gap-2 pt-1">
-                                                <button onClick={() => openMatchModal(match)} className="flex-1 h-9 rounded-xl bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all">Edit</button>
-                                                <button onClick={() => handleDeleteMatch(match.id)} className="h-9 w-9 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all">
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                </button>
+                                                {canEditMatch && (
+                                                    <button onClick={() => openMatchModal(match)} className="flex-1 h-9 rounded-xl bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all">Edit</button>
+                                                )}
+                                                {canDeleteMatch && (
+                                                    <button onClick={() => handleDeleteMatch(match.id)} className="h-9 w-9 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all">
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1154,7 +1225,14 @@ export default function EditionDetailPage() {
                 {activeTab === "Teams" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
-                            <Button onClick={() => openTeamModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Team</Button>
+                            <Button
+                                onClick={canAddTeam ? () => openTeamModal() : undefined}
+                                disabled={!canAddTeam}
+                                title={!canAddTeam ? "You don't have permission to add teams" : undefined}
+                                icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
+                            >
+                                Add Team
+                            </Button>
                         </div>
                         {teamsLoading ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1186,12 +1264,16 @@ export default function EditionDetailPage() {
                                                 </span>
                                             )}
                                             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <button onClick={(e) => { e.stopPropagation(); openTeamModal(team); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all">
-                                                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                                </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteTeam(team.id, team.name); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all">
-                                                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                </button>
+                                                {canEditTeam && (
+                                                    <button onClick={(e) => { e.stopPropagation(); openTeamModal(team); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all">
+                                                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                    </button>
+                                                )}
+                                                {canDeleteTeam && (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTeam(team.id, team.name); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all">
+                                                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="px-4 py-3">
@@ -1209,7 +1291,14 @@ export default function EditionDetailPage() {
                 {activeTab === "Person" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
-                            <Button onClick={() => openPlayerModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Person</Button>
+                            <Button
+                                onClick={canAddPlayer ? () => openPlayerModal() : undefined}
+                                disabled={!canAddPlayer}
+                                title={!canAddPlayer ? "You don't have permission to add players" : undefined}
+                                icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
+                            >
+                                Add Player
+                            </Button>
                         </div>
                         {playersLoading ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1236,9 +1325,13 @@ export default function EditionDetailPage() {
                                     return (
                                         <div key={player.id} className="group bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200">
                                             <div className="relative h-28 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}99 100%)` }}>
-                                                <div className="h-14 w-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
-                                                    <span className="text-white font-black text-lg">{initials}</span>
-                                                </div>
+                                                {player.image ? (
+                                                    <img src={player.image} alt={player.full_name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="h-14 w-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
+                                                        <span className="text-white font-black text-lg">{initials}</span>
+                                                    </div>
+                                                )}
                                                 <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                                     <button onClick={(e) => { e.stopPropagation(); openPlayerModal(player); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all">
                                                         <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -1257,26 +1350,254 @@ export default function EditionDetailPage() {
                                     );
                                 })}
                             </div>
-                        )}
-                    </div>
-                )}
+                        )
+                        }
+                    </div >
+                )
+                }
 
                 {/* SPONSORSHIPS */}
-                {activeTab === "Sponsorships" && (
-                    <div className="space-y-4">
-                        <div className="flex justify-end">
-                            <Button onClick={() => openSponsorModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Sponsor</Button>
-                        </div>
-
-                        {sponsorshipsLoading ? (
-                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
-                                {Array.from({ length: 4 }).map((_, i) => (
-                                    <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />
-                                ))}
+                {
+                    activeTab === "Sponsorships" && (
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <Button onClick={() => openSponsorModal()} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>Add Sponsor</Button>
                             </div>
-                        ) : (
-                            <>
-                                <DataTable
+
+                            {sponsorshipsLoading ? (
+                                <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                    {Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />
+                                    ))}
+                                </div>
+                            ) : (
+                                <>
+                                    <DataTable
+                                        columns={[
+                                            {
+                                                header: "#",
+                                                accessor: "index",
+                                                render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
+                                            },
+                                            {
+                                                header: "Brand",
+                                                accessor: "brand_name",
+                                                render: (row) => (
+                                                    <div className="flex items-center gap-3">
+
+                                                        <span className="text-sm font-bold text-gray-950">{row.brand_name}</span>
+                                                    </div>
+                                                )
+                                            },
+                                            {
+                                                header: "Type",
+                                                accessor: "sponsor_type",
+                                                render: (row) => <SponsorTypeBadge type={row.sponsor_type} theme={theme} />
+                                            },
+                                            {
+                                                header: "Contract Value",
+                                                accessor: "contract_value",
+                                                align: "right",
+                                                render: (row) => (
+                                                    <span className="text-sm font-bold text-gray-950">
+                                                        ₹{Number(row.contract_value).toLocaleString("en-IN")}
+                                                    </span>
+                                                )
+                                            },
+                                            {
+                                                header: "Actions",
+                                                accessor: "actions",
+                                                align: "center",
+                                                render: (row) => (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button onClick={() => openSponsorModal(row.original)} className="h-8 px-3 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all">Edit</button>
+                                                        <button onClick={() => handleDeleteSponsor(row.original.id, row.original.brand_name)} className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all">
+                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    </div>
+                                                )
+                                            }
+                                        ]}
+                                        data={sponsorships.map((s, idx) => ({ ...s, index: idx + 1, original: s }))}
+                                        emptyMessage="No sponsors yet. Click 'Add Sponsor' to add one."
+                                        itemsPerPage={10}
+                                    />
+
+                                    {/* Summary Footer */}
+                                    {sponsorships.length > 0 && (
+                                        <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] px-6 py-3 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Contract Value</span>
+                                            <span className="text-sm font-black text-gray-950">
+                                                ₹{sponsorships.reduce((sum, s) => sum + Number(s.contract_value || 0), 0).toLocaleString("en-IN")}
+                                            </span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )
+                }
+
+                {/* METRICS */}
+                {
+                    activeTab === "Metrics" && (
+                        <div className="space-y-6">
+                            {!metricTree ? (
+                                <div className="flex items-center justify-center py-24">
+                                    <div className="flex flex-col items-center gap-3 text-gray-300">
+                                        <svg className="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        <span className="text-xs font-bold uppercase tracking-widest">Loading Metrics...</span>
+                                    </div>
+                                </div>
+                            ) : !Array.isArray(metricTree) || metricTree.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                                    <svg className="w-16 h-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                    </svg>
+                                    <p className="text-sm font-semibold text-gray-950 mb-1">No Metrics Available</p>
+                                    <p className="text-xs text-gray-400">No metric definitions have been configured for this sport yet.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* Category Tabs */}
+                                    <div className="flex items-center gap-2 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm overflow-x-auto">
+                                        {metricTree.map((category, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => setActiveMetricCategory(idx)}
+                                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${activeMetricCategory === idx ? "text-white shadow-md" : "text-gray-400 hover:text-gray-950"
+                                                    }`}
+                                                style={activeMetricCategory === idx ? { backgroundColor: theme.primary_color } : {}}
+                                            >
+                                                {category.name}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Metric Rows */}
+                                    <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-gray-50 border-b border-gray-100">
+                                                    <tr>
+                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Metric</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Match</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Player</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Value</th>
+                                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {metricTree[activeMetricCategory]?.metric_definitions?.map((definition) => {
+                                                        const rowData = metricRowData[definition.id] || {};
+                                                        return (
+                                                            <tr key={definition.id} className="hover:bg-gray-50/50 transition-colors">
+                                                                <td className="px-4 py-3">
+                                                                    <span className="text-sm font-semibold text-gray-950">{definition.label}</span>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <select
+                                                                        value={rowData.match_id || ""}
+                                                                        onChange={(e) => updateMetricRowData(definition.id, "match_id", e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                    >
+                                                                        <option value="">Select match</option>
+                                                                        {matches.map(match => {
+                                                                            const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                                                            const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                                                            const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                                                            const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                                                            return (
+                                                                                <option key={match.id} value={match.id}>
+                                                                                    #{match.match_no} - {t1Name} vs {t2Name}
+                                                                                </option>
+                                                                            );
+                                                                        })}
+                                                                    </select>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <select
+                                                                        value={rowData.person_id || ""}
+                                                                        onChange={(e) => updateMetricRowData(definition.id, "person_id", e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                    >
+                                                                        <option value="">Select player</option>
+                                                                        {players.map(player => (
+                                                                            <option key={player.id} value={player.id}>
+                                                                                {player.full_name} {player.role && player.role !== "PLAYER" ? `(${player.role})` : ""}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    {definition.data_type === "boolean" ? (
+                                                                        <select
+                                                                            value={rowData.value || ""}
+                                                                            onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
+                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                        >
+                                                                            <option value="">Select</option>
+                                                                            <option value="true">Yes</option>
+                                                                            <option value="false">No</option>
+                                                                        </select>
+                                                                    ) : (
+                                                                        <input
+                                                                            type={definition.data_type === "integer" || definition.data_type === "float" ? "number" : "text"}
+                                                                            step={definition.data_type === "float" ? "0.01" : definition.data_type === "integer" ? "1" : undefined}
+                                                                            placeholder="Enter value"
+                                                                            value={rowData.value || ""}
+                                                                            onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
+                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                        />
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center">
+                                                                    <button
+                                                                        onClick={() => handleSubmitMetricRow(definition.id)}
+                                                                        disabled={!canEditMetricField()}
+                                                                        className="px-4 py-2 rounded-lg text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
+                                                                        style={{ backgroundColor: theme.primary_color }}
+                                                                    >
+                                                                        Submit
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )
+                }
+
+                {/* EDIT DETAILS */}
+                {
+                    activeTab === "Edit Details" && edition && (
+                        <EditDetailsForm edition={edition} id={id} theme={theme} onSaved={fetchEdition} />
+                    )
+                }
+
+                {/* STATS */}
+                {
+                    activeTab === "Stats" && (
+                        <div className="space-y-4">
+
+
+                            {statsLoading ? (
+                                <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+                                    ))}
+                                </div>
+                            ) : (
+                                <ServerPaginatedTable
                                     columns={[
                                         {
                                             header: "#",
@@ -1284,27 +1605,73 @@ export default function EditionDetailPage() {
                                             render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
                                         },
                                         {
-                                            header: "Brand",
-                                            accessor: "brand_name",
+                                            header: "Match",
+                                            accessor: "match",
+                                            render: (row) => {
+                                                const match = matches.find(m => m.id === row.match_id);
+                                                if (!match) return <span className="text-sm text-gray-500">—</span>;
+                                                const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                                const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                                const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                                const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                                return (
+                                                    <span className="text-sm font-semibold text-gray-950">
+                                                        #{match.match_no} - {t1Name} vs {t2Name}
+                                                    </span>
+                                                );
+                                            }
+                                        },
+                                        {
+                                            header: "Player",
+                                            accessor: "person",
+                                            render: (row) => {
+                                                const player = players.find(p => p.id === row.person_id);
+                                                return (
+                                                    <span className="text-sm font-semibold text-gray-950">
+                                                        {player?.full_name || `Player ${row.person_id}`}
+                                                    </span>
+                                                );
+                                            }
+                                        },
+                                        {
+                                            header: "Metric",
+                                            accessor: "metric_definition",
+                                            render: (row) => {
+                                                let metricName = "—";
+                                                if (metricTree && Array.isArray(metricTree)) {
+                                                    metricTree.forEach(category => {
+                                                        if (Array.isArray(category.metric_definitions)) {
+                                                            const def = category.metric_definitions.find(d => d.id === row.metric_definition_id);
+                                                            if (def) metricName = def.label;
+                                                        }
+                                                    });
+                                                }
+                                                return <span className="text-sm text-gray-700">{metricName}</span>;
+                                            }
+                                        },
+                                        {
+                                            header: "Value",
+                                            accessor: "value_text",
                                             render: (row) => (
-                                                <div className="flex items-center gap-3">
-
-                                                    <span className="text-sm font-bold text-gray-950">{row.brand_name}</span>
-                                                </div>
+                                                <span className="text-sm font-bold text-gray-950">{row.value_text}</span>
                                             )
                                         },
                                         {
-                                            header: "Type",
-                                            accessor: "sponsor_type",
-                                            render: (row) => <SponsorTypeBadge type={row.sponsor_type} theme={theme} />
+                                            header: "Date",
+                                            accessor: "recorded_date",
+                                            render: (row) => (
+                                                <span className="text-xs text-gray-500">
+                                                    {row.recorded_date ? new Date(row.recorded_date).toLocaleDateString("en-IN") : "—"}
+                                                </span>
+                                            )
                                         },
                                         {
-                                            header: "Contract Value",
-                                            accessor: "contract_value",
-                                            align: "right",
+                                            header: "Status",
+                                            accessor: "is_approved",
+                                            align: "center",
                                             render: (row) => (
-                                                <span className="text-sm font-bold text-gray-950">
-                                                    ₹{Number(row.contract_value).toLocaleString("en-IN")}
+                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${row.is_approved ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                                                    {row.is_approved ? "Approved" : "Pending"}
                                                 </span>
                                             )
                                         },
@@ -1314,708 +1681,487 @@ export default function EditionDetailPage() {
                                             align: "center",
                                             render: (row) => (
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <button onClick={() => openSponsorModal(row.original)} className="h-8 px-3 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all">Edit</button>
-                                                    <button onClick={() => handleDeleteSponsor(row.original.id, row.original.brand_name)} className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all">
-                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    <button
+                                                        onClick={() => openEditMetricValueModal(row)}
+                                                        className="h-8 px-3 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openDeleteModal(row.id)}
+                                                        className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
                                                     </button>
                                                 </div>
                                             )
                                         }
                                     ]}
-                                    data={sponsorships.map((s, idx) => ({ ...s, index: idx + 1, original: s }))}
-                                    emptyMessage="No sponsors yet. Click 'Add Sponsor' to add one."
-                                    itemsPerPage={10}
+                                    data={metricValues.map((mv, idx) => ({ ...mv, index: (statsPage - 1) * 10 + idx + 1 }))}
+                                    currentPage={statsPage}
+                                    totalPages={statsTotalPages}
+                                    onPageChange={setStatsPage}
+                                    emptyMessage="No metric values found."
                                 />
-
-                                {/* Summary Footer */}
-                                {sponsorships.length > 0 && (
-                                    <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] px-6 py-3 flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Contract Value</span>
-                                        <span className="text-sm font-black text-gray-950">
-                                            ₹{sponsorships.reduce((sum, s) => sum + Number(s.contract_value || 0), 0).toLocaleString("en-IN")}
-                                        </span>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* METRICS */}
-                {activeTab === "Metrics" && (
-                    <div className="space-y-6">
-                        {!metricTree ? (
-                            <div className="flex items-center justify-center py-24">
-                                <div className="flex flex-col items-center gap-3 text-gray-300">
-                                    <svg className="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                    </svg>
-                                    <span className="text-xs font-bold uppercase tracking-widest">Loading Metrics...</span>
-                                </div>
-                            </div>
-                        ) : !Array.isArray(metricTree) || metricTree.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-                                <svg className="w-16 h-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                                </svg>
-                                <p className="text-sm font-semibold text-gray-950 mb-1">No Metrics Available</p>
-                                <p className="text-xs text-gray-400">No metric definitions have been configured for this sport yet.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                {/* Category Tabs */}
-                                <div className="flex items-center gap-2 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm overflow-x-auto">
-                                    {metricTree.map((category, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => setActiveMetricCategory(idx)}
-                                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${activeMetricCategory === idx ? "text-white shadow-md" : "text-gray-400 hover:text-gray-950"
-                                                }`}
-                                            style={activeMetricCategory === idx ? { backgroundColor: theme.primary_color } : {}}
-                                        >
-                                            {category.name}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Metric Rows */}
-                                <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-gray-50 border-b border-gray-100">
-                                                <tr>
-                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Metric</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Match</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Player</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Value</th>
-                                                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100">
-                                                {metricTree[activeMetricCategory]?.metric_definitions?.map((definition) => {
-                                                    const rowData = metricRowData[definition.id] || {};
-                                                    return (
-                                                        <tr key={definition.id} className="hover:bg-gray-50/50 transition-colors">
-                                                            <td className="px-4 py-3">
-                                                                <span className="text-sm font-semibold text-gray-950">{definition.label}</span>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <select
-                                                                    value={rowData.match_id || ""}
-                                                                    onChange={(e) => updateMetricRowData(definition.id, "match_id", e.target.value)}
-                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                >
-                                                                    <option value="">Select match</option>
-                                                                    {matches.map(match => {
-                                                                        const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
-                                                                        const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
-                                                                        const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
-                                                                        const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
-                                                                        return (
-                                                                            <option key={match.id} value={match.id}>
-                                                                                #{match.match_no} - {t1Name} vs {t2Name}
-                                                                            </option>
-                                                                        );
-                                                                    })}
-                                                                </select>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <select
-                                                                    value={rowData.person_id || ""}
-                                                                    onChange={(e) => updateMetricRowData(definition.id, "person_id", e.target.value)}
-                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                >
-                                                                    <option value="">Select player</option>
-                                                                    {players.map(player => (
-                                                                        <option key={player.id} value={player.id}>
-                                                                            {player.full_name} {player.role && player.role !== "PLAYER" ? `(${player.role})` : ""}
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                {definition.data_type === "boolean" ? (
-                                                                    <select
-                                                                        value={rowData.value || ""}
-                                                                        onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
-                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                    >
-                                                                        <option value="">Select</option>
-                                                                        <option value="true">Yes</option>
-                                                                        <option value="false">No</option>
-                                                                    </select>
-                                                                ) : (
-                                                                    <input
-                                                                        type={definition.data_type === "integer" || definition.data_type === "float" ? "number" : "text"}
-                                                                        step={definition.data_type === "float" ? "0.01" : definition.data_type === "integer" ? "1" : undefined}
-                                                                        placeholder="Enter value"
-                                                                        value={rowData.value || ""}
-                                                                        onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
-                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                    />
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <button
-                                                                    onClick={() => handleSubmitMetricRow(definition.id)}
-                                                                    disabled={!canEditMetricField()}
-                                                                    className="px-4 py-2 rounded-lg text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
-                                                                    style={{ backgroundColor: theme.primary_color }}
-                                                                >
-                                                                    Submit
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* EDIT DETAILS */}
-                {activeTab === "Edit Details" && edition && (
-                    <EditDetailsForm edition={edition} id={id} theme={theme} onSaved={fetchEdition} />
-                )}
-
-                {/* STATS */}
-                {activeTab === "Stats" && (
-                    <div className="space-y-4">
-
-
-                        {statsLoading ? (
-                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
-                                ))}
-                            </div>
-                        ) : (
-                            <ServerPaginatedTable
-                                columns={[
-                                    {
-                                        header: "#",
-                                        accessor: "index",
-                                        render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
-                                    },
-                                    {
-                                        header: "Match",
-                                        accessor: "match",
-                                        render: (row) => {
-                                            const match = matches.find(m => m.id === row.match_id);
-                                            if (!match) return <span className="text-sm text-gray-500">—</span>;
-                                            const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
-                                            const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
-                                            const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
-                                            const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
-                                            return (
-                                                <span className="text-sm font-semibold text-gray-950">
-                                                    #{match.match_no} - {t1Name} vs {t2Name}
-                                                </span>
-                                            );
-                                        }
-                                    },
-                                    {
-                                        header: "Player",
-                                        accessor: "person",
-                                        render: (row) => {
-                                            const player = players.find(p => p.id === row.person_id);
-                                            return (
-                                                <span className="text-sm font-semibold text-gray-950">
-                                                    {player?.full_name || `Player ${row.person_id}`}
-                                                </span>
-                                            );
-                                        }
-                                    },
-                                    {
-                                        header: "Metric",
-                                        accessor: "metric_definition",
-                                        render: (row) => {
-                                            let metricName = "—";
-                                            if (metricTree && Array.isArray(metricTree)) {
-                                                metricTree.forEach(category => {
-                                                    if (Array.isArray(category.metric_definitions)) {
-                                                        const def = category.metric_definitions.find(d => d.id === row.metric_definition_id);
-                                                        if (def) metricName = def.label;
-                                                    }
-                                                });
-                                            }
-                                            return <span className="text-sm text-gray-700">{metricName}</span>;
-                                        }
-                                    },
-                                    {
-                                        header: "Value",
-                                        accessor: "value_text",
-                                        render: (row) => (
-                                            <span className="text-sm font-bold text-gray-950">{row.value_text}</span>
-                                        )
-                                    },
-                                    {
-                                        header: "Date",
-                                        accessor: "recorded_date",
-                                        render: (row) => (
-                                            <span className="text-xs text-gray-500">
-                                                {row.recorded_date ? new Date(row.recorded_date).toLocaleDateString("en-IN") : "—"}
-                                            </span>
-                                        )
-                                    },
-                                    {
-                                        header: "Status",
-                                        accessor: "is_approved",
-                                        align: "center",
-                                        render: (row) => (
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${row.is_approved ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                                                {row.is_approved ? "Approved" : "Pending"}
-                                            </span>
-                                        )
-                                    },
-                                    {
-                                        header: "Actions",
-                                        accessor: "actions",
-                                        align: "center",
-                                        render: (row) => (
-                                            <div className="flex items-center justify-center gap-2">
-                                                <button
-                                                    onClick={() => openEditMetricValueModal(row)}
-                                                    className="h-8 px-3 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 hover:text-gray-950 transition-all"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => openDeleteModal(row.id)}
-                                                    className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        )
-                                    }
-                                ]}
-                                data={metricValues.map((mv, idx) => ({ ...mv, index: (statsPage - 1) * 10 + idx + 1 }))}
-                                currentPage={statsPage}
-                                totalPages={statsTotalPages}
-                                onPageChange={setStatsPage}
-                                emptyMessage="No metric values found."
-                            />
-                        )}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )
+                }
 
                 {/* REQUESTS */}
-                {activeTab === "Requests" && (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Your Change Requests</p>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setRequestsStatusFilter("approved,rejected")}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "approved,rejected" ? "text-white" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
-                                    style={requestsStatusFilter === "approved,rejected" ? { backgroundColor: theme.primary_color } : {}}
-                                >
-                                    All
-                                </button>
-                                <button
-                                    onClick={() => setRequestsStatusFilter("approved")}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "approved" ? "text-white bg-emerald-500" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
-                                >
-                                    Approved
-                                </button>
-                                <button
-                                    onClick={() => setRequestsStatusFilter("rejected")}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "rejected" ? "text-white bg-red-500" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
-                                >
-                                    Rejected
-                                </button>
+                {
+                    activeTab === "Requests" && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Your Change Requests</p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setRequestsStatusFilter("approved,rejected")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "approved,rejected" ? "text-white" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
+                                        style={requestsStatusFilter === "approved,rejected" ? { backgroundColor: theme.primary_color } : {}}
+                                    >
+                                        All
+                                    </button>
+                                    <button
+                                        onClick={() => setRequestsStatusFilter("approved")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "approved" ? "text-white bg-emerald-500" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
+                                    >
+                                        Approved
+                                    </button>
+                                    <button
+                                        onClick={() => setRequestsStatusFilter("rejected")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${requestsStatusFilter === "rejected" ? "text-white bg-red-500" : "text-gray-400 bg-white border border-gray-100 hover:text-gray-950"}`}
+                                    >
+                                        Rejected
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        {requestsLoading ? (
-                            <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
-                                ))}
-                            </div>
-                        ) : (
-                            <DataTable
-                                columns={[
-                                    {
-                                        header: "#",
-                                        accessor: "index",
-                                        render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
-                                    },
-                                    {
-                                        header: "Type",
-                                        accessor: "type",
-                                        render: (row) => (
-                                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.type === "new_entry"
-                                                ? "bg-blue-100 text-blue-700"
-                                                : "bg-purple-100 text-purple-700"
-                                                }`}>
-                                                {row.type === "new_entry" ? "New Entry" : "Correction"}
-                                            </span>
-                                        )
-                                    },
-                                    {
-                                        header: "Metric",
-                                        accessor: "metric",
-                                        render: (row) => (
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-gray-700">
-                                                    {row.metric_value?.metric_definition?.label || "—"}
+                            {requestsLoading ? (
+                                <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+                                    ))}
+                                </div>
+                            ) : (
+                                <DataTable
+                                    columns={[
+                                        {
+                                            header: "#",
+                                            accessor: "index",
+                                            render: (row) => <span className="text-xs font-black text-gray-300">{row.index}</span>
+                                        },
+                                        {
+                                            header: "Type",
+                                            accessor: "type",
+                                            render: (row) => (
+                                                <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.type === "new_entry"
+                                                    ? "bg-blue-100 text-blue-700"
+                                                    : "bg-purple-100 text-purple-700"
+                                                    }`}>
+                                                    {row.type === "new_entry" ? "New Entry" : "Correction"}
                                                 </span>
-                                                <span className="text-[10px] text-gray-400">
-                                                    Edition: {row.metric_value?.edition?.name || "—"}
-                                                </span>
-                                            </div>
-                                        )
-                                    },
-                                    {
-                                        header: "Value",
-                                        accessor: "value",
-                                        render: (row) => (
-                                            <div className="flex items-center gap-2">
-                                                {row.original_value && (
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Original</span>
-                                                        <div className="px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg">
-                                                            <span className="text-sm font-bold text-red-600">{row.original_value}</span>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {row.original_value && (
-                                                    <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                                    </svg>
-                                                )}
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                                                        {row.original_value ? "Changed" : "New"}
-                                                    </span>
-                                                    <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
-                                                        <span className="text-sm font-bold text-emerald-600">{row.proposed_value}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )
-                                    },
-                                    {
-                                        header: "Match",
-                                        accessor: "match",
-                                        render: (row) => {
-                                            const match = row.metric_value?.match;
-                                            if (!match) return <span className="text-xs text-gray-400">—</span>;
-                                            return (
+                                            )
+                                        },
+                                        {
+                                            header: "Metric",
+                                            accessor: "metric",
+                                            render: (row) => (
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-bold text-gray-700">
-                                                        Match #{match.match_no || "—"}
+                                                        {row.metric_value?.metric_definition?.label || "—"}
                                                     </span>
-                                                    <span className="text-[10px] text-gray-500">
-                                                        Round: {match.round || "—"}
-                                                    </span>
-                                                    <span className="text-[10px] text-gray-600 font-medium">
-                                                        {match.team1?.name || "Team 1"} vs {match.team2?.name || "Team 2"}
+                                                    <span className="text-[10px] text-gray-400">
+                                                        Edition: {row.metric_value?.edition?.name || "—"}
                                                     </span>
                                                 </div>
-                                            );
+                                            )
+                                        },
+                                        {
+                                            header: "Value",
+                                            accessor: "value",
+                                            render: (row) => (
+                                                <div className="flex items-center gap-2">
+                                                    {row.original_value && (
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Original</span>
+                                                            <div className="px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg">
+                                                                <span className="text-sm font-bold text-red-600">{row.original_value}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {row.original_value && (
+                                                        <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                                        </svg>
+                                                    )}
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                                                            {row.original_value ? "Changed" : "New"}
+                                                        </span>
+                                                        <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+                                                            <span className="text-sm font-bold text-emerald-600">{row.proposed_value}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            header: "Match",
+                                            accessor: "match",
+                                            render: (row) => {
+                                                const match = row.metric_value?.match;
+                                                if (!match) return <span className="text-xs text-gray-400">—</span>;
+                                                return (
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-gray-700">
+                                                            Match #{match.match_no || "—"}
+                                                        </span>
+                                                        <span className="text-[10px] text-gray-500">
+                                                            Round: {match.round || "—"}
+                                                        </span>
+                                                        <span className="text-[10px] text-gray-600 font-medium">
+                                                            {match.team1?.name || "Team 1"} vs {match.team2?.name || "Team 2"}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            }
+                                        },
+                                        {
+                                            header: "Player",
+                                            accessor: "player",
+                                            render: (row) => (
+                                                <span className="text-xs font-medium text-gray-600">
+                                                    {row.metric_value?.person?.full_name || "—"}
+                                                </span>
+                                            )
+                                        },
+                                        {
+                                            header: "Submitted",
+                                            accessor: "submitted_at",
+                                            render: (row) => (
+                                                <span className="text-xs text-gray-500 font-medium">
+                                                    {formatDate(row.submitted_at)}
+                                                </span>
+                                            )
+                                        },
+                                        {
+                                            header: "Status",
+                                            accessor: "status",
+                                            align: "center",
+                                            render: (row) => getStatusBadge(row.status)
                                         }
-                                    },
-                                    {
-                                        header: "Player",
-                                        accessor: "player",
-                                        render: (row) => (
-                                            <span className="text-xs font-medium text-gray-600">
-                                                {row.metric_value?.person?.full_name || "—"}
-                                            </span>
-                                        )
-                                    },
-                                    {
-                                        header: "Submitted",
-                                        accessor: "submitted_at",
-                                        render: (row) => (
-                                            <span className="text-xs text-gray-500 font-medium">
-                                                {formatDate(row.submitted_at)}
-                                            </span>
-                                        )
-                                    },
-                                    {
-                                        header: "Status",
-                                        accessor: "status",
-                                        align: "center",
-                                        render: (row) => getStatusBadge(row.status)
-                                    }
-                                ]}
-                                data={userRequests.map((request, idx) => ({ ...request, index: idx + 1 }))}
-                                emptyMessage={`No ${requestsStatusFilter.replace(",", " or ")} requests found.`}
-                                itemsPerPage={10}
-                            />
-                        )}
-                    </div>
-                )}
-            </div>
+                                    ]}
+                                    data={userRequests.map((request, idx) => ({ ...request, index: idx + 1 }))}
+                                    emptyMessage={`No ${requestsStatusFilter.replace(",", " or ")} requests found.`}
+                                    itemsPerPage={10}
+                                />
+                            )}
+                        </div>
+                    )
+                }
+            </div >
 
             {/* Edit Metric Value Modal */}
-            {mounted && isEditingMetricValue && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={editMetricValueModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">Edit Metric Value</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Update Value</p>
+            {
+                mounted && isEditingMetricValue && typeof document !== 'undefined' && createPortal(
+                    <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={editMetricValueModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">Edit Metric Value</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Update Value</p>
+                                </div>
+                                <button onClick={closeEditMetricValueModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             </div>
-                            <button onClick={closeEditMetricValueModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <form onSubmit={handleUpdateMetricValue} className="p-6 space-y-4">
+                                <Input
+                                    label="Value"
+                                    placeholder="Enter value"
+                                    required
+                                    value={editMetricValueForm.value_text}
+                                    onChange={(e) => setEditMetricValueForm({ value_text: e.target.value })}
+                                />
+                                <Button type="submit" className="w-full">
+                                    UPDATE VALUE
+                                </Button>
+                            </form>
                         </div>
-                        <form onSubmit={handleUpdateMetricValue} className="p-6 space-y-4">
-                            <Input
-                                label="Value"
-                                placeholder="Enter value"
-                                required
-                                value={editMetricValueForm.value_text}
-                                onChange={(e) => setEditMetricValueForm({ value_text: e.target.value })}
-                            />
-                            <Button type="submit" className="w-full">
-                                UPDATE VALUE
-                            </Button>
-                        </form>
-                    </div>
-                </div>, document.body
-            )}
+                    </div>, document.body
+                )
+            }
 
             {/* Delete Confirmation Modal */}
-            {mounted && isDeleteModalOpen && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={deleteModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-red-50/30">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
+            {
+                mounted && isDeleteModalOpen && typeof document !== 'undefined' && createPortal(
+                    <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={deleteModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-red-50/30">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">Delete Metric Value</h3>
+                                        <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Confirm Deletion</p>
+                                    </div>
                                 </div>
+                                <button onClick={closeDeleteModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                <p className="text-sm text-gray-600 leading-relaxed">
+                                    Are you sure you want to delete this metric value? This action cannot be undone.
+                                </p>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={closeDeleteModal}
+                                        className="flex-1 px-4 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold uppercase tracking-widest hover:bg-gray-200 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteMetricValue(deletingMetricValueId)}
+                                        className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white text-sm font-bold uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg hover:shadow-xl"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>, document.body
+                )
+            }
+            {
+                mounted && isMatchModalOpen && createPortal(
+                    <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={modalRef} className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20 sticky top-0 bg-white">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">Delete Metric Value</h3>
-                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Confirm Deletion</p>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingMatchId ? "Edit Match" : "Add Match"}</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Match Details</p>
                                 </div>
-                            </div>
-                            <button onClick={closeDeleteModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-6">
-                            <p className="text-sm text-gray-600 leading-relaxed">
-                                Are you sure you want to delete this metric value? This action cannot be undone.
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={closeDeleteModal}
-                                    className="flex-1 px-4 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold uppercase tracking-widest hover:bg-gray-200 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteMetricValue(deletingMetricValueId)}
-                                    className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white text-sm font-bold uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg hover:shadow-xl"
-                                >
-                                    Delete
+                                <button onClick={closeMatchModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                </div>, document.body
-            )}
-            {mounted && isMatchModalOpen && createPortal(
-                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={modalRef} className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20 sticky top-0 bg-white">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingMatchId ? "Edit Match" : "Add Match"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Match Details</p>
-                            </div>
-                            <button onClick={closeMatchModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <form onSubmit={handleSaveMatch} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Match No" type="number" placeholder="1" required value={matchForm.match_no} onChange={(e) => setMatchForm({ ...matchForm, match_no: e.target.value })} />
-                                <Input label="Round" placeholder="Group Stage" required value={matchForm.round} onChange={(e) => setMatchForm({ ...matchForm, round: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 1</label>
-                                    <select required value={matchForm.team1_id} onChange={(e) => setMatchForm({ ...matchForm, team1_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        <option value="">Select team</option>
-                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
+                            <form onSubmit={handleSaveMatch} className="p-6 space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input label="Match No" type="number" placeholder="1" required value={matchForm.match_no} onChange={(e) => setMatchForm({ ...matchForm, match_no: e.target.value })} />
+                                    <Input label="Round" placeholder="Group Stage" required value={matchForm.round} onChange={(e) => setMatchForm({ ...matchForm, round: e.target.value })} />
                                 </div>
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 2</label>
-                                    <select required value={matchForm.team2_id} onChange={(e) => setMatchForm({ ...matchForm, team2_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        <option value="">Select team</option>
-                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 1</label>
+                                        <select required value={matchForm.team1_id} onChange={(e) => setMatchForm({ ...matchForm, team1_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                            <option value="">Select team</option>
+                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 2</label>
+                                        <select required value={matchForm.team2_id} onChange={(e) => setMatchForm({ ...matchForm, team2_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                            <option value="">Select team</option>
+                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
-                            <Input label="Venue" placeholder="Stadium A" value={matchForm.venue} onChange={(e) => setMatchForm({ ...matchForm, venue: e.target.value })} />
-                            <Input label="Scheduled At" type="datetime-local" value={matchForm.scheduled_at} onChange={(e) => setMatchForm({ ...matchForm, scheduled_at: e.target.value })} />
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Actual Start" type="datetime-local" value={matchForm.actual_start_time} onChange={(e) => setMatchForm({ ...matchForm, actual_start_time: e.target.value })} />
-                                <Input label="Actual End" type="datetime-local" value={matchForm.actual_end_time} onChange={(e) => setMatchForm({ ...matchForm, actual_end_time: e.target.value })} />
-                            </div>
-                            <Button type="submit" disabled={isSaving} className="w-full">
-                                {isSaving ? "SAVING..." : editingMatchId ? "SAVE CHANGES" : "CREATE MATCH"}
-                            </Button>
-                        </form>
-                    </div>
-                </div>,
-                document.body
-            )}
+                                <Input label="Venue" placeholder="Stadium A" value={matchForm.venue} onChange={(e) => setMatchForm({ ...matchForm, venue: e.target.value })} />
+                                <Input label="Scheduled At" type="datetime-local" value={matchForm.scheduled_at} onChange={(e) => setMatchForm({ ...matchForm, scheduled_at: e.target.value })} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input label="Actual Start" type="datetime-local" value={matchForm.actual_start_time} onChange={(e) => setMatchForm({ ...matchForm, actual_start_time: e.target.value })} />
+                                    <Input label="Actual End" type="datetime-local" value={matchForm.actual_end_time} onChange={(e) => setMatchForm({ ...matchForm, actual_end_time: e.target.value })} />
+                                </div>
+                                <Button type="submit" disabled={isSaving} className="w-full">
+                                    {isSaving ? "SAVING..." : editingMatchId ? "SAVE CHANGES" : "CREATE MATCH"}
+                                </Button>
+                            </form>
+                        </div>
+                    </div>,
+                    document.body
+                )
+            }
 
             {/* Player Modal */}
-            {mounted && isPlayerModalOpen && createPortal(
-                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
+            {
+                mounted && isPlayerModalOpen && createPortal(
+                    <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Person Details</p>
+                                </div>
+                                <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             </div>
-                            <button onClick={closePlayerModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
+                                <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
+
+                                {/* Player Image Uploader */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Player Image</label>
+                                    <div
+                                        onClick={() => playerImageRef.current?.click()}
+                                        className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
+                                    >
+                                        <input
+                                            type="file"
+                                            ref={playerImageRef}
+                                            onChange={handlePlayerImageChange}
+                                            accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
+                                            className="hidden"
+                                        />
+                                        {playerForm.imagePreview ? (
+                                            <img src={playerForm.imagePreview} alt="Player Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <>
+                                                <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                    </svg>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Image</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
+                                        <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
+                                        <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                            <option value="">No Team</option>
+                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
+                                    <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        <option value="KADAMBA">KADAMBA</option>
+                                        <option value="SISPORT">SISPORT</option>
+                                        <option value="VOTKBD">VOTKBD</option>
+                                        <option value="STARSELEV8">STARSELEV8</option>
+                                        <option value="YKS">YKS</option>
+                                    </select>
+                                </div>
+                                <Button type="submit" disabled={isSavingPlayer} className="w-full">
+                                    {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
+                                </Button>
+                            </form>
                         </div>
-                        <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
-                            <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
-                                    <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                                    </select>
-                                </div>
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
-                                    <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        <option value="">No Team</option>
-                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
-                                <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                    <option value="KADAMBA">KADAMBA</option>
-                                    <option value="SISPORT">SISPORT</option>
-                                    <option value="VOTKBD">VOTKBD</option>
-                                    <option value="STARSELEV8">STARSELEV8</option>
-                                    <option value="YKS">YKS</option>
-                                </select>
-                            </div>
-                            <Button type="submit" disabled={isSavingPlayer} className="w-full">
-                                {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
-                            </Button>
-                        </form>
-                    </div>
-                </div>,
-                document.body
-            )}
+                    </div>,
+                    document.body
+                )
+            }
 
             {/* Sponsor Modal */}
-            {mounted && isSponsorModalOpen && createPortal(
-                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={sponsorModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingSponsorId ? "Edit Sponsor" : "Add Sponsor"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Sponsorship Details</p>
+            {
+                mounted && isSponsorModalOpen && createPortal(
+                    <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={sponsorModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingSponsorId ? "Edit Sponsor" : "Add Sponsor"}</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Sponsorship Details</p>
+                                </div>
+                                <button onClick={closeSponsorModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             </div>
-                            <button onClick={closeSponsorModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <form onSubmit={handleSaveSponsor} className="p-6 space-y-4">
+                                <Input label="Brand Name" placeholder="e.g. Nike" required value={sponsorForm.brand_name} onChange={(e) => setSponsorForm({ ...sponsorForm, brand_name: e.target.value })} />
+                                <div className="flex flex-col space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sponsor Type</label>
+                                    <select required value={sponsorForm.sponsor_type} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_type: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                        <option value="TITLE">TITLE</option>
+                                        <option value="CO-SPONSOR">CO-SPONSOR</option>
+                                        <option value="ASSOCIATE">ASSOCIATE</option>
+                                        <option value="POWERED BY">POWERED BY</option>
+                                        <option value="OFFICIAL PARTNER">OFFICIAL PARTNER</option>
+                                    </select>
+                                </div>
+                                <Input label="Contract Value (₹)" type="number" placeholder="e.g. 50000" required value={sponsorForm.contract_value} onChange={(e) => setSponsorForm({ ...sponsorForm, contract_value: e.target.value })} />
+                                <Button type="submit" disabled={isSavingSponsor} className="w-full">
+                                    {isSavingSponsor ? "SAVING..." : editingSponsorId ? "SAVE CHANGES" : "ADD SPONSOR"}
+                                </Button>
+                            </form>
                         </div>
-                        <form onSubmit={handleSaveSponsor} className="p-6 space-y-4">
-                            <Input label="Brand Name" placeholder="e.g. Nike" required value={sponsorForm.brand_name} onChange={(e) => setSponsorForm({ ...sponsorForm, brand_name: e.target.value })} />
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sponsor Type</label>
-                                <select required value={sponsorForm.sponsor_type} onChange={(e) => setSponsorForm({ ...sponsorForm, sponsor_type: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                    <option value="TITLE">TITLE</option>
-                                    <option value="CO-SPONSOR">CO-SPONSOR</option>
-                                    <option value="ASSOCIATE">ASSOCIATE</option>
-                                    <option value="POWERED BY">POWERED BY</option>
-                                    <option value="OFFICIAL PARTNER">OFFICIAL PARTNER</option>
-                                </select>
-                            </div>
-                            <Input label="Contract Value (₹)" type="number" placeholder="e.g. 50000" required value={sponsorForm.contract_value} onChange={(e) => setSponsorForm({ ...sponsorForm, contract_value: e.target.value })} />
-                            <Button type="submit" disabled={isSavingSponsor} className="w-full">
-                                {isSavingSponsor ? "SAVING..." : editingSponsorId ? "SAVE CHANGES" : "ADD SPONSOR"}
-                            </Button>
-                        </form>
-                    </div>
-                </div>,
-                document.body
-            )}
+                    </div>,
+                    document.body
+                )
+            }
 
             {/* Team Modal */}
-            {mounted && isTeamModalOpen && createPortal(
-                <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingTeamId ? "Edit Team" : "Add Team"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Team Details</p>
-                            </div>
-                            <button onClick={closeTeamModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
-                            <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
-                            <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
-
-                            {/* Team Logo Uploader */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
-                                <div
-                                    onClick={() => teamLogoRef.current?.click()}
-                                    className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
-                                >
-                                    <input
-                                        type="file"
-                                        ref={teamLogoRef}
-                                        onChange={handleTeamLogoChange}
-                                        accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
-                                        className="hidden"
-                                    />
-                                    {teamForm.logoPreview ? (
-                                        <img src={teamForm.logoPreview} alt="Team Logo Preview" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <>
-                                            <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                </svg>
-                                            </div>
-                                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Logo</span>
-                                        </>
-                                    )}
+            {
+                mounted && isTeamModalOpen && createPortal(
+                    <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                        <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingTeamId ? "Edit Team" : "Add Team"}</h3>
+                                    <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Team Details</p>
                                 </div>
+                                <button onClick={closeTeamModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             </div>
+                            <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
+                                <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
+                                <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
 
-                            <Button type="submit" disabled={isSavingTeam} className="w-full">
-                                {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
-                            </Button>
-                        </form>
-                    </div>
-                </div >
-            )
+                                {/* Team Logo Uploader */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
+                                    <div
+                                        onClick={() => teamLogoRef.current?.click()}
+                                        className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
+                                    >
+                                        <input
+                                            type="file"
+                                            ref={teamLogoRef}
+                                            onChange={handleTeamLogoChange}
+                                            accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
+                                            className="hidden"
+                                        />
+                                        {teamForm.logoPreview ? (
+                                            <img src={teamForm.logoPreview} alt="Team Logo Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <>
+                                                <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                    </svg>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Logo</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <Button type="submit" disabled={isSavingTeam} className="w-full">
+                                    {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
+                                </Button>
+                            </form>
+                        </div>
+                    </div >
+                )
             }
         </div >
     );

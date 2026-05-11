@@ -10,10 +10,23 @@ import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import AccessGuard from "@/components/AccessGuard";
 
+const hasPermission = (code) => {
+    if (typeof window === "undefined") return false;
+    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    const isIpOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+    if (isIpOwner) return true;
+    return perms.includes(code);
+};
+
 export default function RolesPermissionsPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
     const router = useRouter();
+
+    // Permission checks
+    const canAdd = user?.role === "super_admin" || hasPermission("role:add");
+    const canEdit = user?.role === "super_admin" || hasPermission("role:edit");
+    const canDelete = user?.role === "super_admin" || hasPermission("role:del");
 
     const [roles, setRoles] = useState([]);
     const [tableLoading, setTableLoading] = useState(true);
@@ -246,18 +259,18 @@ export default function RolesPermissionsPage() {
             render: (role) => (
                 <div className="flex items-center justify-end space-x-2">
                     <button
-                        onClick={() => !role.default_role && switchView("edit", role)}
-                        disabled={role.default_role}
-                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all shadow-sm ${role.default_role ? "bg-gray-50 text-gray-200 cursor-not-allowed" : "bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-950"}`}
-                        title={role.default_role ? "Default roles cannot be edited" : "Edit Role"}
+                        onClick={() => !role.default_role && canEdit && switchView("edit", role)}
+                        disabled={role.default_role || !canEdit}
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all shadow-sm ${role.default_role || !canEdit ? "bg-gray-50 text-gray-200 cursor-not-allowed" : "bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-950"}`}
+                        title={role.default_role ? "Default roles cannot be edited" : !canEdit ? "You don't have permission to edit roles" : "Edit Role"}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
                     <button
-                        onClick={() => !role.default_role && handleDelete(role.id, role.name)}
-                        disabled={role.default_role}
-                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all shadow-sm ${role.default_role ? "bg-gray-50 text-gray-200 cursor-not-allowed" : "bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-600"}`}
-                        title={role.default_role ? "Default roles cannot be deleted" : "Delete Role"}
+                        onClick={() => !role.default_role && canDelete && handleDelete(role.id, role.name)}
+                        disabled={role.default_role || !canDelete}
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all shadow-sm ${role.default_role || !canDelete ? "bg-gray-50 text-gray-200 cursor-not-allowed" : "bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-600"}`}
+                        title={role.default_role ? "Default roles cannot be deleted" : !canDelete ? "You don't have permission to delete roles" : "Delete Role"}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
@@ -282,7 +295,12 @@ export default function RolesPermissionsPage() {
                 </div>
 
                 {view === "list" && (
-                    <Button onClick={() => switchView("add")} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}>
+                    <Button
+                        onClick={canAdd ? () => switchView("add") : undefined}
+                        disabled={!canAdd}
+                        title={!canAdd ? "You don't have permission to add roles" : undefined}
+                        icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
+                    >
                         Add Role
                     </Button>
                 )}

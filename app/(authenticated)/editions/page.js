@@ -37,6 +37,7 @@ export default function EditionsPage() {
     const router = useRouter();
     const canAdd = user?.role === "super_admin" || hasPermission("editions:add");
     const canEdit = user?.role === "super_admin" || hasPermission("editions:edit");
+    const canDelete = user?.role === "super_admin" || hasPermission("editions:del");
 
     const [editions, setEditions] = useState([]);
     const [tableLoading, setTableLoading] = useState(true);
@@ -229,10 +230,9 @@ export default function EditionsPage() {
                     <p className="text-[14px] text-gray-400 font-normal tracking-wide">Manage tournament editions and their schedules.</p>
                 </div>
                 <Button
-                    // onClick={canAdd ? () => openModal() : undefined}
-                    // onClick={canAdd ? () =>  : openModal()}
-                    onClick={() => openModal()}
-                    // disabled={!canAdd}
+                    onClick={canAdd ? () => openModal() : undefined}
+                    disabled={!canAdd}
+                    title={!canAdd ? "You don't have permission to add editions" : undefined}
                     icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
                 >
                     Add Edition
@@ -290,24 +290,30 @@ export default function EditionsPage() {
                                     </div>
 
                                     {/* Edit + Delete icons on hover */}
-                                    {canEdit && (
+                                    {(canEdit || canDelete) && (
                                         <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); openModal(edition); }}
-                                                className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all"
-                                            >
-                                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                </svg>
-                                            </button>
-                                            <button
-                                                onClick={(e) => handleDelete(e, edition.id, edition.name)}
-                                                className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all"
-                                            >
-                                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openModal(edition); }}
+                                                    className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all"
+                                                    title="Edit edition"
+                                                >
+                                                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button
+                                                    onClick={(e) => handleDelete(e, edition.id, edition.name)}
+                                                    className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all"
+                                                    title="Delete edition"
+                                                >
+                                                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            )}
                                         </div>
                                     )}
 
