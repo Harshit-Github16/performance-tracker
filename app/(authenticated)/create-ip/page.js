@@ -23,7 +23,7 @@ const SkeletonRow = () => (
 
 export default function CreateIPPage() {
   const { theme, updateTheme } = useTheme();
-  const { user } = useAuth();
+  const { user, setActiveIp } = useAuth();
   const router = useRouter();
 
   const [tableLoading, setTableLoading] = useState(true);
@@ -104,6 +104,10 @@ export default function CreateIPPage() {
   const handleEnterIP = (ip) => {
     localStorage.setItem("active_ip", JSON.stringify(ip));
     localStorage.setItem("entered_as_manager", "true");
+
+    // Update AuthContext so all components get the new activeIp
+    setActiveIp(ip);
+
     // Apply IP theme
     updateTheme({
       primary_color: ip.primary_color || initialTheme.primary_color,

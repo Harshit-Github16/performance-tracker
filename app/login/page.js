@@ -21,7 +21,7 @@ export default function LoginPage() {
 
   const router = useRouter();
   const { theme, updateTheme } = useTheme();
-  const { login, user, loading, updateUserIps } = useAuth();
+  const { login, user, loading, updateUserIps, setActiveIp } = useAuth();
 
   const cardRef = useRef(null);
   const formRef = useRef(null);
@@ -72,6 +72,8 @@ export default function LoginPage() {
   const selectIPAndRedirect = (ip) => {
     if (ip) {
       localStorage.setItem("active_ip", JSON.stringify(ip));
+      // Update AuthContext so all components get the new activeIp
+      setActiveIp(ip);
       updateTheme({
         primary_color: ip.primary_color || initialTheme.primary_color,
         secondary_color: ip.secondary_color || initialTheme.secondary_color,
@@ -79,6 +81,7 @@ export default function LoginPage() {
       });
     } else {
       localStorage.removeItem("active_ip");
+      setActiveIp(null);
     }
     gsap.to(cardRef.current, {
       y: -40, opacity: 0, filter: "blur(20px)", duration: 0.8, ease: "power4.inOut",

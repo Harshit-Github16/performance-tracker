@@ -7,31 +7,33 @@ import { clearTokenCache } from "@/lib/apiClient";
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [activeIp, setActiveIpState] = useState(null);
+  // Initialize from localStorage synchronously to avoid flash of empty state
+  const [user, setUser] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const savedUser = localStorage.getItem("auth_user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [activeIp, setActiveIpState] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const savedIp = localStorage.getItem("active_ip");
+      return savedIp ? JSON.parse(savedIp) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Initialize auth state from localStorage once
+  // Mark loading as complete after initial render
   useEffect(() => {
-    const initializeAuth = () => {
-      try {
-        const savedUser = localStorage.getItem("auth_user");
-        const savedIp = localStorage.getItem("active_ip");
-
-        if (savedUser) setUser(JSON.parse(savedUser));
-        if (savedIp) setActiveIpState(JSON.parse(savedIp));
-      } catch (error) {
-        console.error("Failed to parse auth data:", error);
-        // Clear corrupted data
-        localStorage.removeItem("auth_user");
-        localStorage.removeItem("active_ip");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
+    setLoading(false);
   }, []);
 
   const setActiveIp = useCallback((ip) => {

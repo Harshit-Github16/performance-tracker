@@ -29,7 +29,7 @@ const SkeletonRow = () => (
 
 export default function UsersPage() {
     const { theme } = useTheme();
-    const { user, activeIp } = useAuth();
+    const { user, activeIp, loading } = useAuth();
     const canAdd = user?.role === "super_admin" || hasPermission("users:add");
     const canEdit = user?.role === "super_admin" || hasPermission("users:edit");
     const canDelete = user?.role === "super_admin" || hasPermission("users:del");
@@ -54,13 +54,16 @@ export default function UsersPage() {
     }, []);
 
     useEffect(() => {
-        // Only fetch users if activeIp is available (for both super admin and IP admin)
-        if (activeIp?.id) {
+        // Wait for auth to finish loading, then fetch users if activeIp is available
+        if (!loading && activeIp?.id) {
             // Clear any stale user data when activeIp changes
             setUsers([]);
             fetchUsers();
+        } else if (!loading && !activeIp?.id) {
+            // Auth loaded but no activeIp - stop loading state
+            setTableLoading(false);
         }
-    }, [activeIp?.id]); // Only depend on activeIp.id to avoid unnecessary re-fetches
+    }, [activeIp?.id, loading]); // Depend on both activeIp.id and loading state
 
     const fetchUsers = async () => {
         setTableLoading(true);
