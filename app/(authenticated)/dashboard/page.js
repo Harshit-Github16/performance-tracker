@@ -1,120 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, } from "react";
 import gsap from "gsap";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { toast } from "sonner";
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, RadialBarChart, RadialBar, Legend,
-  ComposedChart, Scatter
-} from "recharts";
 
-// ─── Dummy Data ───────────────────────────────────────────────────────────────
 
-const matchData = [
-  { month: "Jan", won: 8, lost: 4, draw: 2 },
-  { month: "Feb", won: 10, lost: 5, draw: 1 },
-  { month: "Mar", won: 14, lost: 4, draw: 3 },
-  { month: "Apr", won: 13, lost: 7, draw: 2 },
-  { month: "May", won: 17, lost: 5, draw: 4 },
-  { month: "Jun", won: 19, lost: 6, draw: 2 },
-  { month: "Jul", won: 22, lost: 4, draw: 3 },
-];
 
-const editionData = [
-  { name: "Ed 1", teams: 8, matches: 28, players: 176 },
-  { name: "Ed 2", teams: 10, matches: 45, players: 220 },
-  { name: "Ed 3", teams: 12, matches: 66, players: 264 },
-  { name: "Ed 4", teams: 10, matches: 45, players: 230 },
-  { name: "Ed 5", teams: 14, matches: 78, players: 308 },
-];
-
-const roleDistribution = [
-  { name: "IP Owner", value: 3, fill: "" },
-  { name: "Analyst", value: 5, fill: "" },
-  { name: "Data Entry", value: 8, fill: "" },
-  { name: "Viewer", value: 12, fill: "" },
-  { name: "Manager", value: 6, fill: "" },
-];
-
-const performanceData = [
-  { round: "R1", avg: 42, high: 78, low: 18 },
-  { round: "R2", avg: 55, high: 91, low: 24 },
-  { round: "R3", avg: 48, high: 85, low: 20 },
-  { round: "R4", avg: 63, high: 98, low: 31 },
-  { round: "QF", avg: 71, high: 105, low: 42 },
-  { round: "SF", avg: 68, high: 112, low: 38 },
-  { round: "F", avg: 85, high: 124, low: 55 },
-];
-
-const activityData = [
-  { day: "Mon", logins: 24, actions: 87 },
-  { day: "Tue", logins: 31, actions: 112 },
-  { day: "Wed", logins: 28, actions: 95 },
-  { day: "Thu", logins: 35, actions: 134 },
-  { day: "Fri", logins: 42, actions: 158 },
-  { day: "Sat", logins: 18, actions: 62 },
-  { day: "Sun", logins: 12, actions: 41 },
-];
-
-const winRateData = [
-  { name: "Win Rate", value: 72, fill: "" },
-];
-
-const topTeams = [
-  { name: "Team Alpha", wins: 18, points: 36, nrr: "+1.24" },
-  { name: "Royal CB", wins: 15, points: 30, nrr: "+0.87" },
-  { name: "Mumbai XI", wins: 13, points: 26, nrr: "+0.41" },
-  { name: "Super Kings", wins: 11, points: 22, nrr: "-0.12" },
-  { name: "Delhi Dares", wins: 9, points: 18, nrr: "-0.55" },
-];
-
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-xl text-xs min-w-[120px]">
-      {label && <p className="font-bold text-gray-950 mb-2 uppercase tracking-widest text-[10px]">{label}</p>}
-      {payload.map((p, i) => (
-        <div key={i} className="flex items-center gap-2 mb-1">
-          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-gray-500 font-medium">{p.name}:</span>
-          <span className="font-bold text-gray-950">{p.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
-const StatCard = ({ label, value, sub, icon, trend, color, index, refEl }) => (
-  <div ref={refEl} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 relative overflow-hidden">
-    <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full opacity-[0.06]" style={{ backgroundColor: color }} />
-    <div className="flex items-start justify-between">
-      <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${color}15` }}>
-        {icon}
-      </div>
-      {trend && (
-        <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${trend > 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"}`}>
-          {trend > 0 ? "↑" : "↓"} {Math.abs(trend)}%
-        </span>
-      )}
-    </div>
-    <div>
-      <p className="text-3xl font-black text-gray-950 tracking-tight">{value}</p>
-      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.15em] mt-0.5">{label}</p>
-    </div>
-    <p className="text-[11px] text-gray-400 font-medium">{sub}</p>
-  </div>
-);
-
-// ─── Chart Card ───────────────────────────────────────────────────────────────
 
 const ChartCard = ({ title, subtitle, children, refEl, className = "" }) => (
   <div ref={refEl} className={`bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 ${className}`}>
@@ -442,7 +336,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     {[
-                      { label: "Total Metrics", value: adminDashboardData.data_quality?.total_metric_values, icon: "📊" },
+                      { label: "Total Metrics value", value: adminDashboardData.data_quality?.total_metric_values, icon: "📊" },
                       { label: "Approved", value: adminDashboardData.data_quality?.approved_metric_values, icon: "✓" },
                       { label: "Approval Rate", value: `${adminDashboardData.data_quality?.approval_rate_percent || 0}%`, icon: "📈" },
                       { label: "Audit Events (24h)", value: adminDashboardData.data_quality?.audit_events_last_24h, icon: "🔍" },
