@@ -382,6 +382,7 @@ export default function EditionDetailPage() {
             return;
         }
 
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const currentDate = new Date().toISOString().split('T')[0];
         const payload = {
             metric_definition_id: definitionId,
@@ -392,7 +393,10 @@ export default function EditionDetailPage() {
             value_text: String(rowData.value)
         };
 
-        const result = await apiClient.post(process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT, payload);
+        const result = await apiClient.post(
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}?property_id=${activeIp?.id}`,
+            payload
+        );
 
         if (result.success) {
             // Show different message based on user role
@@ -466,6 +470,7 @@ export default function EditionDetailPage() {
         // Submit each metric value to the API
         const promises = [];
         const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
 
         if (metricTree && Array.isArray(metricTree)) {
             metricTree.forEach(category => {
@@ -485,7 +490,10 @@ export default function EditionDetailPage() {
                             };
 
                             promises.push(
-                                apiClient.post(process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT, payload)
+                                apiClient.post(
+                                    `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}?property_id=${activeIp?.id}`,
+                                    payload
+                                )
                             );
                         }
                     });
@@ -526,10 +534,12 @@ export default function EditionDetailPage() {
     // Stats functions
     const fetchMetricValues = async () => {
         setStatsLoading(true);
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const params = new URLSearchParams({
             page: statsPage,
             limit: 10,
-            edition_id: id
+            edition_id: id,
+            property_id: activeIp?.id
         });
 
         if (statsFilters.match_id) params.set("match_id", statsFilters.match_id);
@@ -617,8 +627,9 @@ export default function EditionDetailPage() {
 
     const handleUpdateMetricValue = async (e) => {
         e.preventDefault();
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const result = await apiClient.put(
-            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${editingMetricValueId}`,
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${editingMetricValueId}?property_id=${activeIp?.id}`,
             { value_text: editMetricValueForm.value_text }
         );
 
@@ -640,8 +651,9 @@ export default function EditionDetailPage() {
     };
 
     const handleDeleteMetricValue = async (metricValueId) => {
+        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
         const result = await apiClient.delete(
-            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${metricValueId}`
+            `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${metricValueId}?property_id=${activeIp?.id}`
         );
 
         if (result.success) {
