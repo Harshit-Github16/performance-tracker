@@ -168,6 +168,21 @@ export default function EditionsPage() {
 
     const handleSave = async (e) => {
         e.preventDefault();
+
+        // Check if start_date and end_date are the same
+        if (formData.start_date && formData.end_date && formData.start_date === formData.end_date) {
+            toast.error("Start Date and End Date cannot be the same");
+            setIsSaving(false);
+            return;
+        }
+
+        // Check if end_date is before start_date
+        if (formData.start_date && formData.end_date && new Date(formData.end_date) < new Date(formData.start_date)) {
+            toast.error("End Date must be after Start Date");
+            setIsSaving(false);
+            return;
+        }
+
         if (!editingId && getDisabledStatuses().has(formData.status)) {
             toast.error(`Status "${formData.status}" is not valid for the selected dates.`);
             return;
