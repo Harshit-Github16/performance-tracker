@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const P = theme.primary_color;
   const S = theme.secondary_color;
 
-  const PIE_COLORS = [P, S, `${P}80`, `${S}80`, `${P}40`];
+  const PIE_COLORS = [P, S, `${P}`, `${S}`, `${P}`];
 
   const isSuperAdmin = user?.role === "super_admin";
   const enteredAsManager = typeof window !== "undefined" && localStorage.getItem("entered_as_manager") === "true";
