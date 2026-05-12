@@ -158,6 +158,27 @@ export default function RolesPermissionsPage() {
                 }
             } else {
                 next.delete(id);
+
+                // If unchecking "viewall", uncheck all permissions in the same module
+                if (permCode && permCode.endsWith(":viewall")) {
+                    const moduleName = permCode.split(":")[0];
+                    permModules.forEach(mod => {
+                        if (mod.module === moduleName) {
+                            mod.permissions.forEach(p => next.delete(p.id));
+                        }
+                    });
+                } else {
+                    // If unchecking any other permission, also uncheck "viewall" for that module
+                    const moduleName = permCode.split(":")[0];
+                    permModules.forEach(mod => {
+                        if (mod.module === moduleName) {
+                            const viewallPerm = mod.permissions.find(p => p.code.endsWith(":viewall"));
+                            if (viewallPerm) {
+                                next.delete(viewallPerm.id);
+                            }
+                        }
+                    });
+                }
             }
 
             return next;

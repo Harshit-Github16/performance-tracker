@@ -9,9 +9,8 @@ import { initialTheme } from "@/config/theme";
 
 export default function DashboardLayout({ children }) {
   const { theme, updateTheme } = useTheme();
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, activeIp, setActiveIp } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [activeIp, setActiveIp] = useState(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [enteredAsManager, setEnteredAsManager] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -32,7 +31,7 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     const savedIp = localStorage.getItem("active_ip");
-    if (savedIp) {
+    if (savedIp && !activeIp) {
       const ip = JSON.parse(savedIp);
       setActiveIp(ip);
       if (ip?.primary_color) {
@@ -78,13 +77,6 @@ export default function DashboardLayout({ children }) {
     // Get user role name
     const roleName = localStorage.getItem("user_role_name") || "";
     setUserRoleName(roleName);
-
-    // Also refresh activeIp on route change
-    const savedIp = localStorage.getItem("active_ip");
-    if (savedIp) {
-      const ip = JSON.parse(savedIp);
-      setActiveIp(ip);
-    }
 
     // Close mobile menu on route change
     setIsMobileMenuOpen(false);
@@ -379,11 +371,30 @@ export default function DashboardLayout({ children }) {
                             <div className="px-4 py-2 mb-1 border-b border-gray-50"><p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Switch Property</p></div>
                             {user.ips.map((ip) => (
                               <button key={ip.id} onClick={() => {
+                                // Clear all IP-specific localStorage data to prevent stale data
+                                localStorage.removeItem("user_permissions");
+                                localStorage.removeItem("is_ip_owner");
+                                localStorage.removeItem("user_role_name");
+                                localStorage.removeItem("metric_trees");
+
+                                // Set new active IP in localStorage
                                 localStorage.setItem("active_ip", JSON.stringify(ip));
+
+                                // Update AuthContext - this will trigger re-render in all components using useAuth()
                                 setActiveIp(ip);
+
                                 setIsSelectorOpen(false);
+
+                                // Reset local state to force re-fetch
+                                setUserPermissions([]);
+                                setIsIpOwner(false);
+                                setUserRoleName("");
+                                setHasMetricTrees(false);
+
                                 if (ip?.primary_color) updateTheme({ primary_color: ip.primary_color, secondary_color: ip.secondary_color || "#f4f4f5", tournamentName: ip.name });
                                 toast.success(`Switched to ${ip.name}`, { style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' } });
+
+                                // Force navigation to dashboard to trigger fresh data load
                                 router.push("/dashboard");
                               }} className={`w-full flex items-center px-4 py-3 text-left transition-all hover:bg-gray-50 ${activeIp?.id === ip.id ? 'bg-gray-50/50' : ''}`}>
                                 <div className="h-7 w-7 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center mr-3 text-[11px] font-bold text-gray-400">{ip.code?.substring(0, 2)}</div>

@@ -56,9 +56,11 @@ export default function UsersPage() {
     useEffect(() => {
         // Only fetch users if activeIp is available (for both super admin and IP admin)
         if (activeIp?.id) {
+            // Clear any stale user data when activeIp changes
+            setUsers([]);
             fetchUsers();
         }
-    }, [activeIp, user]);
+    }, [activeIp?.id]); // Only depend on activeIp.id to avoid unnecessary re-fetches
 
     const fetchUsers = async () => {
         setTableLoading(true);
