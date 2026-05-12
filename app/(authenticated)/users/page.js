@@ -40,7 +40,8 @@ export default function UsersPage() {
     const [tableLoading, setTableLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [formData, setFormData] = useState({ full_name: "", email: "", role_id: "" });
+    const [editingUserId, setEditingUserId] = useState(null);
+    const [formData, setFormData] = useState({ full_name: "", email: "", role_id: "", is_active: true });
 
     const pageRef = useRef(null);
     const headerRef = useRef(null);
@@ -86,6 +87,7 @@ export default function UsersPage() {
                 full_name: item.user?.full_name ?? "",
                 email: item.user?.email ?? "",
                 role_name: item.role?.name ?? "—",
+                role_id: item.role?.id ?? "",
             }));
             setUsers(list);
         } else {
@@ -108,15 +110,34 @@ export default function UsersPage() {
                     ? result.data
                     : [];
             setRoles(arr);
-            if (arr.length > 0) setFormData(prev => ({ ...prev, role_id: arr[0].id }));
+            // Only set default role if in add mode (no editingUserId)
+            if (arr.length > 0 && !editingUserId) {
+                setFormData(prev => ({ ...prev, role_id: arr[0].id }));
+            }
         }
         setRolesLoading(false);
     };
 
-    const openModal = () => {
-        setFormData({ full_name: "", email: "", role_id: "" });
+    const openModal = async (user = null) => {
         setIsModalOpen(true);
-        fetchRoles();
+
+        if (user) {
+            // Edit mode - first fetch roles, then set form data
+            setEditingUserId(user.access_id);
+            await fetchRoles();
+            setFormData({
+                full_name: user.full_name,
+                email: user.email,
+                role_id: user.role_id || "",
+                is_active: user.is_active
+            });
+        } else {
+            // Add mode
+            setEditingUserId(null);
+            setFormData({ full_name: "", email: "", role_id: "", is_active: true });
+            await fetchRoles();
+        }
+
         requestAnimationFrame(() => {
             if (modalRef.current) {
                 gsap.fromTo(modalRef.current, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" });
@@ -144,16 +165,21 @@ export default function UsersPage() {
             email: formData.email,
             role_id: Number(formData.role_id),
             property_id: activeIp.id,
+            is_active: formData.is_active
         };
-        const result = await apiClient.post(process.env.NEXT_PUBLIC_USERS_ENDPOINT, payload);
+
+        const result = editingUserId
+            ? await apiClient.put(`${process.env.NEXT_PUBLIC_USERS_ENDPOINT}/${editingUserId}`, payload)
+            : await apiClient.post(process.env.NEXT_PUBLIC_USERS_ENDPOINT, payload);
+
         if (result.success) {
-            toast.success(`${formData.full_name} added successfully!`, {
+            toast.success(`${formData.full_name} ${editingUserId ? 'updated' : 'added'} successfully!`, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
             await fetchUsers();
             closeModal();
         } else {
-            toast.error(result.error || "Failed to add user.");
+            toast.error(result.error || `Failed to ${editingUserId ? 'update' : 'add'} user.`);
         }
         setIsSaving(false);
     };
@@ -220,16 +246,28 @@ export default function UsersPage() {
             header: "Actions",
             align: "center",
             render: (u) => (
-                <button
-                    onClick={() => canDelete && handleDeleteUser(u.access_id, u.full_name)}
-                    disabled={!canDelete}
-                    className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all mx-auto disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:text-gray-400"
-                    title={canDelete ? "Delete user" : "You don't have permission to delete users"}
-                >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
+                <div className="flex items-center justify-center space-x-2">
+                    <button
+                        onClick={() => canEdit && openModal(u)}
+                        disabled={!canEdit}
+                        className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-blue-50 hover:text-blue-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:text-gray-400"
+                        title={canEdit ? "Edit user" : "You don't have permission to edit users"}
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => canDelete && handleDeleteUser(u.access_id, u.full_name)}
+                        disabled={!canDelete}
+                        className="h-8 w-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:text-gray-400"
+                        title={canDelete ? "Delete user" : "You don't have permission to delete users"}
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
             ),
         },
     ];
@@ -297,8 +335,8 @@ export default function UsersPage() {
                     <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
                         <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                             <div>
-                                <h3 className="text-xl font-semibold text-gray-950 uppercase tracking-tight">Add User</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1.5 tracking-widest uppercase">New User Registration</p>
+                                <h3 className="text-xl font-semibold text-gray-950 uppercase tracking-tight">{editingUserId ? "Edit User" : "Add User"}</h3>
+                                <p className="text-xs text-gray-400 font-bold mt-1.5 tracking-widest uppercase">{editingUserId ? "Update User Details" : "New User Registration"}</p>
                             </div>
                             <button onClick={closeModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all active:scale-95">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -321,9 +359,28 @@ export default function UsersPage() {
                                     }
                                 </select>
                             </div>
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Status</label>
+                                <div className="flex items-center gap-6 py-4">
+                                    {[
+                                        { label: "Active", value: true },
+                                        { label: "Inactive", value: false }
+                                    ].map((status) => (
+                                        <label key={status.label} className="flex items-center gap-2 cursor-pointer group">
+                                            <div
+                                                onClick={() => setFormData({ ...formData, is_active: status.value })}
+                                                className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${formData.is_active === status.value ? "border-gray-950" : "border-gray-200"}`}
+                                            >
+                                                {formData.is_active === status.value && <div className="h-2 w-2 rounded-full bg-gray-950" />}
+                                            </div>
+                                            <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-950 transition-colors">{status.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                             <div className="pt-2">
                                 <Button type="submit" disabled={isSaving} className="w-full">
-                                    {isSaving ? "SAVING..." : "ADD USER"}
+                                    {isSaving ? "SAVING..." : editingUserId ? "UPDATE USER" : "ADD USER"}
                                 </Button>
                             </div>
                         </form>
