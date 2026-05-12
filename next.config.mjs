@@ -38,6 +38,7 @@ const nextConfig = {
 
     // Analytics
     NEXT_PUBLIC_ANALYTICS_IP_DASHBOARD_ENDPOINT: "/analytics/ip-dashboard",
+    NEXT_PUBLIC_ANALYTICS_ADMIN_DASHBOARD_ENDPOINT: "/analytics/admin-dashboard",
 
     // GCP Storage Configuration
     NEXT_PUBLIC_GCP_PROJECT_ID: "yuva-kabaddi-series-prod",

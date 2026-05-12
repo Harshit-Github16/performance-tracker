@@ -139,11 +139,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [showIpDashboard, setShowIpDashboard] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [adminDashboardData, setAdminDashboardData] = useState(null);
 
   const P = theme.primary_color;
   const S = theme.secondary_color;
 
   const PIE_COLORS = [P, S, `${P}80`, `${S}80`, `${P}40`];
+
+  const isSuperAdmin = user?.role === "super_admin";
+  const enteredAsManager = typeof window !== "undefined" && localStorage.getItem("entered_as_manager") === "true";
+  const showSuperAdminDashboard = isSuperAdmin && !enteredAsManager;
 
   // Initialize on mount - wait for AuthContext to load
   useEffect(() => {
@@ -156,6 +161,12 @@ export default function DashboardPage() {
     if (mounted) return; // Already initialized
 
     setMounted(true);
+
+    // Check if super admin without entered_as_manager
+    if (showSuperAdminDashboard) {
+      fetchAdminDashboard();
+      return;
+    }
 
     // IMPORTANT: Always check localStorage first for immediate state
     const storedIp = localStorage.getItem("active_ip");
@@ -172,7 +183,7 @@ export default function DashboardPage() {
     if (shouldShowIpDashboard) {
       fetchEditions();
     }
-  }, [authLoading, activeIp, mounted]);
+  }, [authLoading, activeIp, mounted, showSuperAdminDashboard]);
 
   // Update when activeIp changes from AuthContext
   useEffect(() => {
@@ -263,6 +274,20 @@ export default function DashboardPage() {
     setLoading(false);
   };
 
+  const fetchAdminDashboard = async () => {
+    setLoading(true);
+    const result = await apiClient.get(
+      `${process.env.NEXT_PUBLIC_ANALYTICS_ADMIN_DASHBOARD_ENDPOINT}`
+    );
+
+    if (result.success) {
+      setAdminDashboardData(result.data?.data || result.data);
+    } else {
+      toast.error(result.error || "Failed to load admin dashboard data");
+    }
+    setLoading(false);
+  };
+
   const STAT_CARDS = [
     { label: "Total IPs", value: "4", sub: "+1 this month", icon: "🏆", trend: 25, color: P },
     { label: "Active Editions", value: "3", sub: "2 upcoming", icon: "📅", trend: 0, color: "#f59e0b" },
@@ -293,7 +318,9 @@ export default function DashboardPage() {
               <span className="text-[11px] font-bold uppercase tracking-[0.4em] text-gray-400">Overview</span>
             </div>
             <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Dashboard</h1>
-            <p className="text-[13px] text-gray-400">Tournament performance at a glance.</p>
+            <p className="text-[13px] text-gray-400">
+              {showSuperAdminDashboard ? "Global system overview." : "Tournament performance at a glance."}
+            </p>
           </div>
 
           {/* Edition Selector - Shows when IP is selected */}
@@ -317,8 +344,213 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Loading State */}
-      {showIpDashboard && loading && (
+      {/* Super Admin Dashboard */}
+      {showSuperAdminDashboard && (
+        <>
+          {/* Loading State */}
+          {loading && (
+            <div className="px-4">
+              <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
+                <svg className="animate-spin h-8 w-8 mb-3" style={{ color: P }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-sm font-semibold text-gray-400">Loading admin dashboard...</p>
+              </div>
+            </div>
+          )}
+
+          {/* No Data State */}
+          {!loading && !adminDashboardData && (
+            <div className="px-4">
+              <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
+                <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-gray-950 mb-1">No Dashboard Data</p>
+                <p className="text-xs text-gray-400">Admin dashboard data is not available yet.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Admin Dashboard Content */}
+          {!loading && adminDashboardData && (
+            <>
+              {/* System Overview Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 px-4">
+                {[
+                  { label: "Total Properties", value: adminDashboardData.system_overview?.total_properties, icon: "🏢", color: P },
+                  { label: "Total Users", value: adminDashboardData.system_overview?.total_users, icon: "👥", color: "#10b981" },
+                  { label: "Total Editions", value: adminDashboardData.system_overview?.total_editions, icon: "📅", color: "#f59e0b" },
+                  { label: "Active Editions", value: adminDashboardData.system_overview?.active_editions, icon: "✅", color: "#6366f1" },
+                  { label: "Pending Approvals", value: adminDashboardData.system_overview?.pending_approvals, icon: "⏳", color: "#ec4899" },
+                ].map((stat, i) => (
+                  <div key={i} ref={el => statsRef.current[i] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-3 relative overflow-hidden">
+                    <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full opacity-[0.06]" style={{ backgroundColor: stat.color }} />
+                    <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${stat.color}15` }}>
+                      {stat.icon}
+                    </div>
+                    <div>
+                      <p className="text-3xl font-black text-gray-950 tracking-tight">{stat.value?.toLocaleString() || 0}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em] mt-1 leading-tight">{stat.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Change Request Queue & Data Quality */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
+                {/* Change Request Queue */}
+                <div ref={el => chartsRef.current[0] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Change Request Queue</h3>
+                    <p className="text-xs text-gray-400 mt-1">Approval workflow status</p>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { label: "Pending", value: adminDashboardData.change_request_queue?.pending, color: "#f59e0b" },
+                      { label: "Approved Today", value: adminDashboardData.change_request_queue?.approved_today, color: "#10b981" },
+                      { label: "Rejected Today", value: adminDashboardData.change_request_queue?.rejected_today, color: "#ef4444" },
+                      { label: "This Week Total", value: adminDashboardData.change_request_queue?.this_week_total, color: P },
+                    ].map((item, i) => (
+                      <div key={i}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-gray-600">{item.label}</span>
+                          <span className="text-lg font-black text-gray-950">{item.value?.toLocaleString() || 0}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min((item.value / Math.max(adminDashboardData.change_request_queue?.this_week_total || 1, 1)) * 100, 100)}%`,
+                              backgroundColor: item.color
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Data Quality Metrics */}
+                <div ref={el => chartsRef.current[1] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Data Quality</h3>
+                    <p className="text-xs text-gray-400 mt-1">Metric values & approval rates</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "Total Metrics", value: adminDashboardData.data_quality?.total_metric_values, icon: "📊" },
+                      { label: "Approved", value: adminDashboardData.data_quality?.approved_metric_values, icon: "✓" },
+                      { label: "Approval Rate", value: `${adminDashboardData.data_quality?.approval_rate_percent || 0}%`, icon: "📈" },
+                      { label: "Audit Events (24h)", value: adminDashboardData.data_quality?.audit_events_last_24h, icon: "🔍" },
+                    ].map((item, i) => (
+                      <div key={i} className="bg-gray-50 rounded-xl p-4 text-center">
+                        <div className="text-2xl mb-2">{item.icon}</div>
+                        <p className="text-2xl font-black text-gray-950">{item.value}</p>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-1">{item.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Users by Role & Metric Health */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
+                {/* Users by Role */}
+                <div ref={el => chartsRef.current[2] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Users by Role</h3>
+                    <p className="text-xs text-gray-400 mt-1">Role distribution across system</p>
+                  </div>
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {adminDashboardData.user_access?.users_by_role?.map((role, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}>
+                            {role.count}
+                          </div>
+                          <span className="text-xs font-semibold text-gray-700 capitalize">{role.role}</span>
+                        </div>
+                        <span className="text-xs font-bold text-gray-400">{role.count} users</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Metric Health */}
+                <div ref={el => chartsRef.current[3] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Metric Health</h3>
+                    <p className="text-xs text-gray-400 mt-1">Categories, definitions & values</p>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { label: "Total Categories", value: adminDashboardData.metric_health?.total_categories, color: P },
+                      { label: "Total Definitions", value: adminDashboardData.metric_health?.total_definitions, color: "#6366f1" },
+                      { label: "Unused Definitions", value: adminDashboardData.metric_health?.unused_definitions, color: "#ef4444" },
+                      { label: "Approved Values", value: adminDashboardData.metric_health?.approved_values, color: "#10b981" },
+                      { label: "Pending Values", value: adminDashboardData.metric_health?.pending_values, color: "#f59e0b" },
+                    ].map((item, i) => (
+                      <div key={i}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-gray-600">{item.label}</span>
+                          <span className="text-lg font-black text-gray-950">{item.value?.toLocaleString() || 0}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min((item.value / 50) * 100, 100)}%`,
+                              backgroundColor: item.color
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Audit Feed */}
+              <div className="px-4">
+                <div ref={el => chartsRef.current[4] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Recent Audit Feed</h3>
+                    <p className="text-xs text-gray-400 mt-1">Latest system activities</p>
+                  </div>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {adminDashboardData.recent_audit_feed?.map((audit, i) => (
+                      <div key={audit.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}>
+                          {audit.actor?.full_name?.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "??"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-gray-950">{audit.actor?.full_name}</span>
+                            <span className="text-[10px] text-gray-400">{new Date(audit.rec_created).toLocaleString()}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-1">{audit.action_type.replace(/_/g, " ")}</p>
+                          {audit.new_value?.value && (
+                            <span className="inline-block px-2 py-1 bg-white rounded text-[10px] font-bold text-gray-700 border border-gray-200">
+                              Value: {audit.new_value.value}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Loading State - IP Dashboard */}
+      {!showSuperAdminDashboard && showIpDashboard && loading && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
             <svg className="animate-spin h-8 w-8 mb-3" style={{ color: P }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -330,8 +562,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* No Editions State */}
-      {showIpDashboard && !loading && editions.length === 0 && (
+      {/* No Editions State - IP Dashboard */}
+      {!showSuperAdminDashboard && showIpDashboard && !loading && editions.length === 0 && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
             <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
@@ -345,8 +577,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* No Dashboard Data State */}
-      {showIpDashboard && !loading && editions.length > 0 && selectedEditionId && !dashboardData && (
+      {/* No Dashboard Data State - IP Dashboard */}
+      {!showSuperAdminDashboard && showIpDashboard && !loading && editions.length > 0 && selectedEditionId && !dashboardData && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
             <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
@@ -360,8 +592,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Dashboard Content - Shows when IP is selected */}
-      {showIpDashboard && !loading && dashboardData && (
+      {/* Dashboard Content - Shows when IP is selected (NOT for super admin) */}
+      {!showSuperAdminDashboard && showIpDashboard && !loading && dashboardData && (
         <>
           {/* Property & Edition Info */}
           <div className="px-4">
@@ -547,222 +779,6 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Super Admin Dashboard - Shows only when NO IP is selected */}
-      {!showIpDashboard && (
-        <>
-          {/* Stat Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4">
-            {STAT_CARDS.map((c, i) => (
-              <StatCard key={i} {...c} index={i} refEl={el => statsRef.current[i] = el} />
-            ))}
-          </div>
-
-          {/* Row 1 — Area + Composed */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 px-4">
-
-            {/* Match Results — Stacked Area */}
-            <ChartCard title="Won vs Lost per Month" subtitle="Match Results" refEl={el => chartsRef.current[0] = el} className="lg:col-span-3">
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={matchData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gWon" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={P} stopOpacity={0.25} />
-                      <stop offset="100%" stopColor={P} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gLost" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={S} stopOpacity={0.2} />
-                      <stop offset="100%" stopColor={S} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gDraw" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={`${P}60`} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={`${P}60`} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="won" stroke={P} strokeWidth={2.5} fill="url(#gWon)" name="Won" dot={false} activeDot={{ r: 5, fill: P }} />
-                  <Area type="monotone" dataKey="lost" stroke={S} strokeWidth={2} fill="url(#gLost)" name="Lost" dot={false} activeDot={{ r: 5, fill: S }} />
-                  <Area type="monotone" dataKey="draw" stroke={`${P}60`} strokeWidth={1.5} fill="url(#gDraw)" name="Draw" dot={false} activeDot={{ r: 4, fill: `${P}60` }} />
-                </AreaChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-5 mt-3">
-                {[["Won", P], ["Lost", S], ["Draw", `${P}60`]].map(([l, c]) => (
-                  <div key={l} className="flex items-center gap-1.5">
-                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
-                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
-                  </div>
-                ))}
-              </div>
-            </ChartCard>
-
-            {/* Win Rate — Radial */}
-            <ChartCard title="Overall Win Rate" subtitle="Season Stats" refEl={el => chartsRef.current[1] = el} className="lg:col-span-2">
-              <div className="flex flex-col items-center justify-center h-[220px] relative">
-                <ResponsiveContainer width="100%" height={200}>
-                  <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" startAngle={220} endAngle={-40} data={[{ name: "Win Rate", value: 72, fill: P }, { name: "bg", value: 100, fill: "#f1f5f9" }]}>
-                    <RadialBar dataKey="value" cornerRadius={8} background={false} />
-                  </RadialBarChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-4xl font-black text-gray-950">72%</span>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Win Rate</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                {[["72", "Wins", P], ["21", "Losses", S], ["7", "Draws", `${P}60`]].map(([v, l, c]) => (
-                  <div key={l} className="flex flex-col items-center p-2 rounded-xl" style={{ backgroundColor: `${c}10` }}>
-                    <span className="text-lg font-black" style={{ color: c }}>{v}</span>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{l}</span>
-                  </div>
-                ))}
-              </div>
-            </ChartCard>
-          </div>
-
-          {/* Row 2 — Bar + Line + Pie */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
-
-            {/* Edition Stats — Grouped Bar */}
-            <ChartCard title="Teams & Matches per Edition" subtitle="Edition Stats" refEl={el => chartsRef.current[2] = el} className="lg:col-span-2">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={editionData} barGap={3} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="teams" fill={P} radius={[6, 6, 0, 0]} name="Teams" maxBarSize={28} />
-                  <Bar dataKey="matches" fill={`${P}60`} radius={[6, 6, 0, 0]} name="Matches" maxBarSize={28} />
-                  <Bar dataKey="players" fill={S} radius={[6, 6, 0, 0]} name="Players" maxBarSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-5 mt-3">
-                {[["Teams", P], ["Matches", `${P}60`], ["Players", S]].map(([l, c]) => (
-                  <div key={l} className="flex items-center gap-1.5">
-                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c }} />
-                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
-                  </div>
-                ))}
-              </div>
-            </ChartCard>
-
-            {/* Role Distribution — Donut */}
-            <ChartCard title="Role Distribution" subtitle="User Roles" refEl={el => chartsRef.current[3] = el}>
-              <ResponsiveContainer width="100%" height={160}>
-                <PieChart>
-                  <Pie data={roleDistribution} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={4} dataKey="value" strokeWidth={0}>
-                    {roleDistribution.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2 mt-2">
-                {roleDistribution.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                      <span className="text-[11px] font-semibold text-gray-500">{r.name}</span>
-                    </div>
-                    <span className="text-[11px] font-bold text-gray-950">{r.value}</span>
-                  </div>
-                ))}
-              </div>
-            </ChartCard>
-          </div>
-
-          {/* Row 3 — Performance + Activity + Top Teams */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
-
-            {/* Avg Score by Round — Composed */}
-            <ChartCard title="Avg Score by Round" subtitle="Performance" refEl={el => chartsRef.current[4] = el}>
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={performanceData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gScore" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={P} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={P} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="round" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="avg" fill="url(#gScore)" stroke="none" />
-                  <Line type="monotone" dataKey="avg" stroke={P} strokeWidth={2.5} dot={{ fill: P, r: 4, strokeWidth: 0 }} name="Avg" activeDot={{ r: 6 }} />
-                  <Line type="monotone" dataKey="high" stroke={S} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="High" />
-                  <Line type="monotone" dataKey="low" stroke={`${P}60`} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="Low" />
-                </ComposedChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-4 mt-3">
-                {[["Avg", P], ["High", S], ["Low", `${P}60`]].map(([l, c]) => (
-                  <div key={l} className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c }} />
-                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
-                  </div>
-                ))}
-              </div>
-            </ChartCard>
-
-            {/* Weekly Activity — Stacked Bar */}
-            <ChartCard title="Weekly User Activity" subtitle="Activity" refEl={el => chartsRef.current[5] = el}>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={activityData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="actions" fill={`${P}30`} radius={[6, 6, 0, 0]} name="Actions" maxBarSize={32} stackId="a" />
-                  <Bar dataKey="logins" fill={P} radius={[6, 6, 0, 0]} name="Logins" maxBarSize={32} stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-4 mt-3">
-                {[["Logins", P], ["Actions", `${P}30`]].map(([l, c]) => (
-                  <div key={l} className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c }} />
-                    <span className="text-[11px] font-semibold text-gray-400">{l}</span>
-                  </div>
-                ))}
-              </div>
-            </ChartCard>
-
-            {/* Top Teams — Mini Leaderboard */}
-            <ChartCard title="Top Teams" subtitle="Leaderboard" refEl={el => chartsRef.current[6] = el}>
-              <div className="space-y-3">
-                {topTeams.map((t, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className={`text-[11px] font-black w-5 text-center ${i === 0 ? "text-amber-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-orange-400" : "text-gray-300"}`}>
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[12px] font-bold text-gray-950 truncate">{t.name}</span>
-                        <span className="text-[11px] font-black text-gray-950 ml-2">{t.points}pts</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${(t.wins / 20) * 100}%`, backgroundColor: i === 0 ? P : `${P}70` }}
-                        />
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-bold w-12 text-right ${t.nrr.startsWith("+") ? "text-emerald-500" : "text-red-400"}`}>
-                      {t.nrr}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">NRR</span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Net Run Rate</span>
-              </div>
-            </ChartCard>
-          </div>
-
-        </>
-      )}
 
     </div>
   );
