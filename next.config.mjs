@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: {
-    NEXT_PUBLIC_API_BASE_URL: "https://4w5mn9pl-3000.inc1.devtunnels.ms",
-
     // Auth
     NEXT_PUBLIC_LOGIN_ENDPOINT: "/auth/login",
     NEXT_PUBLIC_FORGOT_PASSWORD_ENDPOINT: "/auth/forgot-password",
@@ -44,7 +42,6 @@ const nextConfig = {
     NEXT_PUBLIC_GCP_PROJECT_ID: "yuva-kabaddi-series-prod",
     NEXT_PUBLIC_GCP_BUCKET_NAME: "elev8-apps",
     NEXT_PUBLIC_GCP_PROJECT_FOLDER: "performance-tracker",
-    NEXT_PUBLIC_GCP_BASE_URL: "https://storage.googleapis.com/elev8-apps",
     NEXT_PUBLIC_UPLOAD_ENDPOINT: "/upload",
   },
 };
