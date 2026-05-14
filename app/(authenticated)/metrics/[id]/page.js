@@ -233,6 +233,27 @@ export default function MetricDefinitionsPage() {
             ),
         },
         {
+            header: "Sports",
+            accessor: "sports",
+            align: "center",
+            render: (row) => (
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                    {row.sports && row.sports.length > 0 ? (
+                        row.sports.map((sport) => (
+                            <span
+                                key={sport.id}
+                                className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-indigo-50 text-indigo-600 border border-indigo-100"
+                            >
+                                {sport.name}
+                            </span>
+                        ))
+                    ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                    )}
+                </div>
+            ),
+        },
+        {
             header: "Data Type",
             accessor: "data_type",
             align: "center",
