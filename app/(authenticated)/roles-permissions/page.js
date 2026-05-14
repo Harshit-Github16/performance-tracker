@@ -414,15 +414,27 @@ export default function RolesPermissionsPage() {
                                         <tbody className="divide-y divide-gray-50">
                                             {permModules.map((mod) => {
                                                 const allSelected = mod.permissions.every(p => selectedCodes.has(p.id));
+                                                const someSelected = mod.permissions.some(p => selectedCodes.has(p.id));
+                                                const isIndeterminate = someSelected && !allSelected;
+
                                                 return (
                                                     <tr key={mod.module_id} className="hover:bg-gray-50/30 transition-colors">
                                                         <td className="px-8 py-5 align-top">
                                                             <label className="flex items-center gap-2 cursor-pointer group">
                                                                 <div
                                                                     onClick={() => toggleModuleAll(mod)}
-                                                                    className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${allSelected ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
+                                                                    className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${allSelected || isIndeterminate ? "border-gray-950 bg-gray-950" : "border-gray-200 hover:border-gray-400"}`}
                                                                 >
-                                                                    {allSelected && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                                                    {allSelected && (
+                                                                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    )}
+                                                                    {isIndeterminate && (
+                                                                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                                                                        </svg>
+                                                                    )}
                                                                 </div>
                                                                 <span className="text-sm font-bold text-gray-950 capitalize">{mod.module.replace(/_/g, " ")}</span>
                                                             </label>
