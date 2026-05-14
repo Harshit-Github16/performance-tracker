@@ -156,6 +156,24 @@ export default function RolesPermissionsPage() {
                         }
                     });
                 }
+
+                // Auto-select Editions View when Data Entry, Matches, Players, or Teams are selected
+                if (permCode) {
+                    const moduleName = permCode.split(":")[0];
+                    const dependentModules = ["data_entry", "matches", "players", "teams"];
+
+                    if (dependentModules.includes(moduleName)) {
+                        // Find and auto-select editions:view permission
+                        permModules.forEach(mod => {
+                            if (mod.module === "editions") {
+                                const viewPerm = mod.permissions.find(p => p.code === "editions:view");
+                                if (viewPerm) {
+                                    next.add(viewPerm.id);
+                                }
+                            }
+                        });
+                    }
+                }
             } else {
                 next.delete(id);
 
@@ -191,6 +209,24 @@ export default function RolesPermissionsPage() {
         setSelectedCodes(prev => {
             const next = new Set(prev);
             allIds.forEach(id => allSelected ? next.delete(id) : next.add(id));
+
+            // Auto-select Editions View when Data Entry, Matches, Players, or Teams module is selected
+            if (!allSelected) {
+                const dependentModules = ["data_entry", "matches", "players", "teams"];
+
+                if (dependentModules.includes(mod.module)) {
+                    // Find and auto-select editions:view permission
+                    permModules.forEach(m => {
+                        if (m.module === "editions") {
+                            const viewPerm = m.permissions.find(p => p.code === "editions:view");
+                            if (viewPerm) {
+                                next.add(viewPerm.id);
+                            }
+                        }
+                    });
+                }
+            }
+
             return next;
         });
     };
