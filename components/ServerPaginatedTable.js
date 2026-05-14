@@ -13,6 +13,7 @@ export const ServerPaginatedTable = ({
     emptyMessage = "No records found.",
     currentPage = 1,
     totalPages = 1,
+    totalRecords = 0,
     onPageChange,
     searchValue = "",
     onSearchChange,
@@ -37,7 +38,7 @@ export const ServerPaginatedTable = ({
                     />
                 </div>
                 <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                    Showing {data.length} of {totalPages * 10} records
+                    Showing {data.length} of {totalRecords} records
                 </div>
             </div>
 

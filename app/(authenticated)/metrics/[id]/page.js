@@ -44,6 +44,7 @@ export default function MetricDefinitionsPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
 
     const pageRef = useRef(null);
     const headerRef = useRef(null);
@@ -106,6 +107,7 @@ export default function MetricDefinitionsPage() {
             const limitPerPage = data?.limit || 10;
             const calculatedPages = Math.ceil(totalRecords / limitPerPage);
             setTotalPages(calculatedPages);
+            setTotalRecords(totalRecords);
         } else {
             toast.error(result.error || "Failed to load metric definitions.");
         }
@@ -379,6 +381,7 @@ export default function MetricDefinitionsPage() {
                         emptyMessage="No metric definitions found. Click 'Add Definition' to create one."
                         currentPage={page}
                         totalPages={totalPages}
+                        totalRecords={totalRecords}
                         onPageChange={setPage}
                         searchValue={searchInput}
                         onSearchChange={setSearchInput}

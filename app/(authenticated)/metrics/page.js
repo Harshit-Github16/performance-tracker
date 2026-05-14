@@ -24,6 +24,7 @@ export default function metricsPage() {
 
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
     const [search, setSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
 
@@ -65,6 +66,7 @@ export default function metricsPage() {
             const limitPerPage = data?.limit || 10;
             const calculatedPages = Math.ceil(totalRecords / limitPerPage);
             setTotalPages(calculatedPages);
+            setTotalRecords(totalRecords);
         } else {
             toast.error(result.error || "Failed to load metric categories.");
         }
@@ -251,6 +253,7 @@ export default function metricsPage() {
                         emptyMessage="No metric categories found. Click 'Add Category' to create one."
                         currentPage={page}
                         totalPages={totalPages}
+                        totalRecords={totalRecords}
                         onPageChange={setPage}
                         searchValue={searchInput}
                         onSearchChange={setSearchInput}
