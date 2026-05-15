@@ -892,8 +892,8 @@ export default function EditionDetailPage() {
             logo_url: teamForm.logoPreview || "",
         };
         const result = editingTeamId
-            ? await apiClient.put(`${process.env.NEXT_PUBLIC_TEAMS_ENDPOINT}/${editingTeamId}`, payload)
-            : await apiClient.post(process.env.NEXT_PUBLIC_TEAMS_ENDPOINT, payload);
+            ? await apiClient.put(`${process.env.NEXT_PUBLIC_TEAMS_ENDPOINT}/${editingTeamId}?property_id=${activeIp?.id}`, payload)
+            : await apiClient.post(`${process.env.NEXT_PUBLIC_TEAMS_ENDPOINT}?property_id=${activeIp?.id}`, payload);
         if (result.success) {
             toast.success(`${teamForm.name} ${editingTeamId ? "updated" : "created"} successfully!`, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
