@@ -1143,7 +1143,7 @@ export default function EditionDetailPage() {
                                 <div className="col-span-3 flex flex-col items-center justify-center py-24 text-gray-300">
                                     <svg className="w-14 h-14 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                     <p className="text-sm font-semibold text-gray-400">No matches yet</p>
-                                    <p className="text-xs text-gray-300 mt-1">Click 'Add Match' to schedule one</p>
+                                    <p className="text-xs text-gray-300 mt-1">Click &apos;Add Match&apos; to schedule one</p>
                                 </div>
                             ) : matches.map((match) => {
                                 // Always look up teams from the teams array to get the latest logo_url
@@ -1281,7 +1281,7 @@ export default function EditionDetailPage() {
                         ) : teams.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-24 text-gray-400">
                                 <svg className="w-12 h-12 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                <p className="text-sm font-semibold">No teams yet. Click 'Add Team' to create one.</p>
+                                <p className="text-sm font-semibold">No teams yet. Click &apos;Add Team&apos; to create one.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1360,7 +1360,7 @@ export default function EditionDetailPage() {
                         ) : players.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-24 text-gray-400">
                                 <svg className="w-12 h-12 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                <p className="text-sm font-semibold">No players yet. Click 'Add Player' to register one.</p>
+                                <p className="text-sm font-semibold">No players yet. Click &apos;Add Player&apos; to register one.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

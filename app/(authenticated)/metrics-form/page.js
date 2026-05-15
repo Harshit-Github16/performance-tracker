@@ -8,7 +8,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
-export default function metricsFormPage() {
+export default function MetricsFormPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
     const router = useRouter();
@@ -362,7 +362,7 @@ export default function metricsFormPage() {
                     <div>
                         <h2 className="text-lg font-bold text-gray-950 uppercase tracking-tight mb-2">Access Denied</h2>
                         <p className="text-sm text-gray-400 leading-relaxed">
-                            You don't have permission to view this page. Please contact your administrator to request access.
+                            You don&apos;t have permission to view this page. Please contact your administrator to request access.
                         </p>
                     </div>
                     <button

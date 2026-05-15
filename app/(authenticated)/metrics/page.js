@@ -10,7 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 
-export default function metricsPage() {
+export default function MetricsPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
     const router = useRouter();

@@ -36,7 +36,7 @@ class ErrorBoundary extends React.Component {
                             {/* Error Message */}
                             <h2 className="text-xl font-bold text-gray-950 mb-2">Something went wrong</h2>
                             <p className="text-sm text-gray-500 mb-6">
-                                We're sorry, but something unexpected happened. Please try refreshing the page.
+                                We&apos;re sorry, but something unexpected happened. Please try refreshing the page.
                             </p>
 
                             {/* Error Details (Development Only) */}

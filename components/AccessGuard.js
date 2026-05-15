@@ -33,7 +33,7 @@ export default function AccessGuard({ permission, children }) {
                 </div>
                 <div className="text-center">
                     <p className="text-sm font-bold text-gray-950 uppercase tracking-widest">Access Denied</p>
-                    <p className="text-xs text-gray-400 mt-1">You don't have permission to view this page.</p>
+                    <p className="text-xs text-gray-400 mt-1">You don&apos;t have permission to view this page.</p>
                 </div>
             </div>
 

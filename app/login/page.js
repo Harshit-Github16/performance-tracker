@@ -434,7 +434,7 @@ function ForgotPasswordForm({ formRef, onBack }) {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="text-center space-y-1">
         <h2 className="text-sm font-bold text-gray-950 uppercase tracking-widest">Forgot Password</h2>
-        <p className="text-xs text-gray-400">Enter your email and we'll send you a reset link.</p>
+        <p className="text-xs text-gray-400">Enter your email and we&apos;ll send you a reset link.</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input

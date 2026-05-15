@@ -263,7 +263,7 @@ export default function EditionsPage() {
                 ) : editions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-24 text-gray-400">
                         <svg className="w-12 h-12 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        <p className="text-sm font-semibold">No editions found. Click 'Add Edition' to create one.</p>
+                        <p className="text-sm font-semibold">No editions found. Click &apos;Add Edition&apos; to create one.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
