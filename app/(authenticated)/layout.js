@@ -251,25 +251,37 @@ export default function DashboardLayout({ children }) {
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-8">
-          {filteredNav.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
-            return (
-              <button
-                key={item.name}
-                onClick={() => router.push(item.href)}
-                className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 group relative ${isActive ? "text-white shadow-lg shadow-black/5" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}
-                style={isActive ? { backgroundColor: theme.primary_color } : {}}
-              >
-                <div className={`${isActive ? "text-white" : "text-gray-400 group-hover:text-gray-900"}`}>{item.icon}</div>
-                {!isCollapsed && <span className="ml-3 whitespace-nowrap">{item.name}</span>}
-                {isCollapsed && (
-                  <div className="absolute left-full ml-4 px-3 py-2 text-white text-[10px] rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-[100] whitespace-nowrap font-semibold uppercase tracking-widest shadow-xl" style={{ backgroundColor: theme.primary_color }}>
-                    {item.name}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+          {loading ? (
+            // Loading skeleton for menu items
+            <>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="w-full flex items-center px-4 py-3 rounded-xl">
+                  <div className="h-5 w-5 bg-gray-100 rounded animate-pulse" />
+                  {!isCollapsed && <div className="ml-3 h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${60 + (i * 10)}%` }} />}
+                </div>
+              ))}
+            </>
+          ) : (
+            filteredNav.map((item) => {
+              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => router.push(item.href)}
+                  className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 group relative ${isActive ? "text-white shadow-lg shadow-black/5" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}
+                  style={isActive ? { backgroundColor: theme.primary_color } : {}}
+                >
+                  <div className={`${isActive ? "text-white" : "text-gray-400 group-hover:text-gray-900"}`}>{item.icon}</div>
+                  {!isCollapsed && <span className="ml-3 whitespace-nowrap">{item.name}</span>}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-4 px-3 py-2 text-white text-[10px] rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-[100] whitespace-nowrap font-semibold uppercase tracking-widest shadow-xl" style={{ backgroundColor: theme.primary_color }}>
+                      {item.name}
+                    </div>
+                  )}
+                </button>
+              );
+            })
+          )}
         </nav>
 
         <div className="p-4 mt-auto border-t border-gray-100">
@@ -302,23 +314,35 @@ export default function DashboardLayout({ children }) {
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-8 overflow-y-auto">
-          {filteredNav.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
-            return (
-              <button
-                key={item.name}
-                onClick={() => {
-                  router.push(item.href);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${isActive ? "text-white shadow-lg shadow-black/5" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}
-                style={isActive ? { backgroundColor: theme.primary_color } : {}}
-              >
-                <div className={`${isActive ? "text-white" : "text-gray-400"}`}>{item.icon}</div>
-                <span className="ml-3">{item.name}</span>
-              </button>
-            );
-          })}
+          {loading ? (
+            // Loading skeleton for mobile menu items
+            <>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="w-full flex items-center px-4 py-3 rounded-xl">
+                  <div className="h-5 w-5 bg-gray-100 rounded animate-pulse" />
+                  <div className="ml-3 h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${60 + (i * 10)}%` }} />
+                </div>
+              ))}
+            </>
+          ) : (
+            filteredNav.map((item) => {
+              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => {
+                    router.push(item.href);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${isActive ? "text-white shadow-lg shadow-black/5" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}
+                  style={isActive ? { backgroundColor: theme.primary_color } : {}}
+                >
+                  <div className={`${isActive ? "text-white" : "text-gray-400"}`}>{item.icon}</div>
+                  <span className="ml-3">{item.name}</span>
+                </button>
+              );
+            })
+          )}
         </nav>
 
         <div className="p-4 mt-auto border-t border-gray-100">

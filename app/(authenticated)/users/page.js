@@ -119,10 +119,8 @@ export default function UsersPage() {
     };
 
     const openModal = async (user = null) => {
-        setIsModalOpen(true);
-
         if (user) {
-            // Edit mode - first fetch roles, then set form data
+            // Edit mode - first fetch roles and prepare data, then open modal
             setEditingUserId(user.access_id);
             await fetchRoles();
             setFormData({
@@ -132,12 +130,14 @@ export default function UsersPage() {
                 is_active: user.is_active
             });
         } else {
-            // Add mode
+            // Add mode - fetch roles and reset form
             setEditingUserId(null);
             setFormData({ full_name: "", email: "", role_id: "", is_active: true });
             await fetchRoles();
         }
 
+        // Open modal only after data is ready
+        setIsModalOpen(true);
         requestAnimationFrame(() => {
             if (modalRef.current) {
                 gsap.fromTo(modalRef.current, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" });
