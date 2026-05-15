@@ -28,7 +28,7 @@ const statusStyle = {
 };
 
 const SkeletonCard = () => (
-    <div className="rounded-2xl overflow-hidden bg-gray-100 animate-pulse" style={{ height: 220 }} />
+    <div className="rounded-2xl overflow-hidden bg-gray-100 animate-pulse" style={{ height: 240 }} />
 );
 
 export default function EditionsPage() {
@@ -273,12 +273,22 @@ export default function EditionsPage() {
                                 <div
                                     key={edition.id}
                                     className="group relative rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.10)] cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
-                                    style={{ height: 220 }}
+                                    style={{ height: 240 }}
                                     onClick={() => router.push(`/editions/${edition.id}`)}
                                 >
                                     {/* Background - logo or gradient */}
                                     {edition.logo ? (
-                                        <img src={edition.logo} alt={edition.name} className="absolute inset-0 w-full h-full object-cover" />
+                                        <div className="absolute inset-0 w-full h-full">
+                                            <img
+                                                src={edition.logo}
+                                                alt={edition.name}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                    e.target.parentElement.style.background = `linear-gradient(135deg, ${theme.primary_color}cc 0%, ${theme.secondary_color}99 100%)`;
+                                                }}
+                                            />
+                                        </div>
                                     ) : (
                                         <div
                                             className="absolute inset-0"

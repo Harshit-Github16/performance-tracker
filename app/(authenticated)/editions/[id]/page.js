@@ -1270,7 +1270,7 @@ export default function EditionDetailPage() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                 {Array.from({ length: 6 }).map((_, i) => (
                                     <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
-                                        <div className="h-28 bg-gray-100" />
+                                        <div className="h-36 bg-gray-100" />
                                         <div className="px-4 py-3 space-y-2">
                                             <div className="h-3 bg-gray-100 rounded w-3/4" />
                                             <div className="h-2 bg-gray-100 rounded w-1/2" />
@@ -1287,9 +1287,22 @@ export default function EditionDetailPage() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                 {teams.map((team) => (
                                     <div key={team.id} className="group bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200">
-                                        <div className="relative h-28 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
+                                        <div className="relative h-36 flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${theme.primary_color} 0%, ${theme.secondary_color} 100%)` }}>
                                             {team.logo_url ? (
-                                                <img src={team.logo_url} alt={team.name} className="w-16 h-16 object-contain" />
+                                                <div className="absolute inset-0 w-full h-full bg-white/10 backdrop-blur-sm flex items-center justify-center p-4">
+                                                    <img
+                                                        src={team.logo_url}
+                                                        alt={team.name}
+                                                        className="max-w-full max-h-full object-contain drop-shadow-lg"
+                                                        onError={(e) => {
+                                                            e.target.style.display = 'none';
+                                                            const fallback = document.createElement('span');
+                                                            fallback.className = 'text-white font-black text-3xl tracking-tight select-none opacity-90';
+                                                            fallback.textContent = team.short_name || team.name?.slice(0, 2).toUpperCase();
+                                                            e.target.parentElement.appendChild(fallback);
+                                                        }}
+                                                    />
+                                                </div>
                                             ) : (
                                                 <span className="text-white font-black text-3xl tracking-tight select-none opacity-90">
                                                     {team.short_name || team.name?.slice(0, 2).toUpperCase()}
@@ -1336,7 +1349,7 @@ export default function EditionDetailPage() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                 {Array.from({ length: 6 }).map((_, i) => (
                                     <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
-                                        <div className="h-28 bg-gray-100" />
+                                        <div className="h-40 bg-gray-100" />
                                         <div className="px-4 py-3 space-y-2">
                                             <div className="h-3 bg-gray-100 rounded w-3/4" />
                                             <div className="h-2 bg-gray-100 rounded w-1/2" />
@@ -1356,21 +1369,38 @@ export default function EditionDetailPage() {
                                     const bgColor = ROLE_COLORS[player.role] || "#1e3a5f";
                                     return (
                                         <div key={player.id} className="group bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200">
-                                            <div className="relative h-28 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}99 100%)` }}>
+                                            <div className="relative h-40 flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}99 100%)` }}>
                                                 {player.image ? (
-                                                    <img src={player.image} alt={player.full_name} className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 w-full h-full">
+                                                        <img
+                                                            src={player.image}
+                                                            alt={player.full_name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                e.target.style.display = 'none';
+                                                                const fallback = document.createElement('div');
+                                                                fallback.className = 'h-16 w-16 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center';
+                                                                fallback.innerHTML = `<span class="text-white font-black text-xl">${initials}</span>`;
+                                                                e.target.parentElement.appendChild(fallback);
+                                                            }}
+                                                        />
+                                                    </div>
                                                 ) : (
-                                                    <div className="h-14 w-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
-                                                        <span className="text-white font-black text-lg">{initials}</span>
+                                                    <div className="h-16 w-16 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
+                                                        <span className="text-white font-black text-xl">{initials}</span>
                                                     </div>
                                                 )}
                                                 <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); openPlayerModal(player); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all">
-                                                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                                    </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDeletePlayer(player.id, player.full_name); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all">
-                                                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                    </button>
+                                                    {canEditPlayer && (
+                                                        <button onClick={(e) => { e.stopPropagation(); openPlayerModal(player); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-all">
+                                                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                        </button>
+                                                    )}
+                                                    {canDeletePlayer && (
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDeletePlayer(player.id, player.full_name); }} className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/60 transition-all">
+                                                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="px-4 py-3">

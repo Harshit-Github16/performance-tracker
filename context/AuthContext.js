@@ -31,10 +31,114 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Mark loading as complete after initial render
+  // Fetch user properties and permissions on mount (page refresh)
   useEffect(() => {
-    setLoading(false);
-  }, []);
+    const initializeAuth = async () => {
+      if (typeof window === "undefined") {
+        setLoading(false);
+        return;
+      }
+
+      const token = localStorage.getItem("auth_token");
+      const savedUser = localStorage.getItem("auth_user");
+
+      // If no token or user, mark as not loading
+      if (!token || !savedUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const parsedUser = JSON.parse(savedUser);
+
+        // Super admin doesn't need properties API call
+        if (parsedUser.role === "super_admin") {
+          setLoading(false);
+          return;
+        }
+
+        // Fetch properties and permissions for admin users
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_MY_PROPERTIES_ENDPOINT}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (!response.ok) {
+          // If API fails (401, etc), clear auth and redirect to login
+          if (response.status === 401) {
+            logout();
+          }
+          setLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+        const items = Array.isArray(data.data) ? data.data : [];
+        const ips = items.map((item) => item.property);
+
+        // Update user with IPs
+        const updatedUser = { ...parsedUser, ips };
+        localStorage.setItem("auth_user", JSON.stringify(updatedUser));
+        setUser(updatedUser);
+
+        // Check if user is IP Owner (role_id: 2)
+        const isIpOwner = items.some(item => item.role_id === 2);
+        localStorage.setItem("is_ip_owner", JSON.stringify(isIpOwner));
+
+        // Store user role name from first property
+        const userRole = items[0]?.role?.name || items[0]?.role || "IP Admin";
+        localStorage.setItem("user_role_name", userRole);
+
+        // Extract and store permissions
+        const permCodes = new Set();
+        items.forEach(item => {
+          if (Array.isArray(item.permissions)) {
+            item.permissions.forEach(code => permCodes.add(code));
+          }
+        });
+        localStorage.setItem("user_permissions", JSON.stringify([...permCodes]));
+
+        // Fetch metric categories tree for each property
+        const metricTreePromises = ips.map(async (ip) => {
+          const sportId = ip.sport_id || ip.sport?.id;
+          if (!sportId) return null;
+
+          try {
+            const treeRes = await fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT}/get-tree/${sportId}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (treeRes.ok) {
+              const treeData = await treeRes.json();
+              return { propertyId: ip.id, sportId, tree: treeData.data || treeData };
+            }
+          } catch (err) {
+            console.error(`Failed to fetch metric tree for sport ${sportId}:`, err);
+          }
+          return null;
+        });
+
+        const metricTrees = await Promise.all(metricTreePromises);
+        const validTrees = metricTrees.filter(Boolean);
+
+        // Store metric trees
+        if (validTrees.length > 0) {
+          const treesMap = {};
+          validTrees.forEach(({ propertyId, sportId, tree }) => {
+            treesMap[propertyId] = { sportId, tree };
+          });
+          localStorage.setItem("metric_trees", JSON.stringify(treesMap));
+        }
+
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      }
+
+      setLoading(false);
+    };
+
+    initializeAuth();
+  }, []); // Run only once on mount
 
   const setActiveIp = useCallback((ip) => {
     setActiveIpState(ip);
@@ -112,6 +216,7 @@ export function AuthProvider({ children }) {
       "elev8_theme",
       "user_permissions",
       "is_ip_owner",
+      "user_role_name",
       "metric_trees"
     ];
 
