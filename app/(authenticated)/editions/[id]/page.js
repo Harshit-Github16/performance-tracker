@@ -906,6 +906,8 @@ export default function EditionDetailPage() {
         setIsSavingTeam(false);
     };
 
+
+
     const handleTeamLogoChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
