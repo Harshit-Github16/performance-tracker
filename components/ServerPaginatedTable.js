@@ -95,7 +95,8 @@ export const ServerPaginatedTable = ({
                         <button
                             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
-                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center space-x-2 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center space-x-2 
+                            hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
