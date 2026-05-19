@@ -7,15 +7,7 @@ import { DataTable, Button, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
-
-const hasPermission = (code) => {
-    if (typeof window === "undefined") return false;
-    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-    const isIpOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
-    // IP Owner has all permissions
-    if (isIpOwner) return true;
-    return perms.includes(code);
-};
+import { hasPermission } from "@/lib/permissions";
 
 const SkeletonRow = () => (
     <tr className="border-b border-gray-50">
@@ -30,9 +22,10 @@ const SkeletonRow = () => (
 export default function UsersPage() {
     const { theme } = useTheme();
     const { user, activeIp, loading } = useAuth();
-    const canAdd = user?.role === "super_admin" || hasPermission("users:add");
-    const canEdit = user?.role === "super_admin" || hasPermission("users:edit");
-    const canDelete = user?.role === "super_admin" || hasPermission("users:del");
+    const canView = hasPermission("users:view", user);
+    const canAdd = hasPermission("users:add", user);
+    const canEdit = hasPermission("users:edit", user);
+    const canDelete = hasPermission("users:del", user);
 
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -274,118 +267,134 @@ export default function UsersPage() {
 
     return (
         <div ref={pageRef} className="space-y-6">
-            <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
-                <div>
-                    <div className="flex items-center space-x-2 mb-1">
-                        <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primary_color }} />
-                        <span className="text-[12px] font-semibold uppercase tracking-[0.4em] text-gray-400">Management</span>
+            {!canView ? (
+                <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] p-12">
+                    <div className="flex flex-col items-center justify-center text-center">
+                        <div className="h-16 w-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+                            <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest mb-2">Access Denied</h3>
+                        <p className="text-xs text-gray-400">You don&apos;t have permission to view users.</p>
                     </div>
-                    <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Users</h1>
-                    <p className="text-[14px] text-gray-400 font-normal tracking-wide">Manage users and their access across properties.</p>
                 </div>
-                <Button
-                    onClick={canAdd ? openModal : undefined}
-                    disabled={!canAdd}
-                    title={!canAdd ? "You don't have permission to add users" : undefined}
-                    icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
-                >
-                    Add User
-                </Button>
-            </div>
-
-            <div ref={tableRef}>
-                {!activeIp?.id ? (
-                    <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] p-12">
-                        <div className="flex flex-col items-center justify-center text-center">
-                            <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-                                <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                </svg>
+            ) : (
+                <>
+                    <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
+                        <div>
+                            <div className="flex items-center space-x-2 mb-1">
+                                <div className="h-1 w-6 rounded-full" style={{ backgroundColor: theme.primary_color }} />
+                                <span className="text-[12px] font-semibold uppercase tracking-[0.4em] text-gray-400">Management</span>
                             </div>
-                            <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest mb-2">No Property Selected</h3>
-                            <p className="text-xs text-gray-400">Please select a property to view and manage users.</p>
+                            <h1 className="text-2xl font-semibold text-gray-950 tracking-tight leading-none mb-1">Users</h1>
+                            <p className="text-[14px] text-gray-400 font-normal tracking-wide">Manage users and their access across properties.</p>
                         </div>
+                        <Button
+                            onClick={canAdd ? openModal : undefined}
+                            disabled={!canAdd}
+                            title={!canAdd ? "You don't have permission to add users" : undefined}
+                            icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
+                        >
+                            Add User
+                        </Button>
                     </div>
-                ) : tableLoading ? (
-                    <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-                            <div className="h-10 w-64 bg-gray-100 rounded-xl animate-pulse" />
-                            <div className="h-4 w-40 bg-gray-100 rounded-lg animate-pulse" />
-                        </div>
-                        <div className="border-b border-gray-50 px-6 py-2 flex gap-6">
-                            {["Name", "Email", "Role", "Status"].map((h) => (
-                                <div key={h} className="h-3 bg-gray-100 rounded animate-pulse flex-1" />
-                            ))}
-                        </div>
-                        <table className="w-full">
-                            <tbody>{Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}</tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <DataTable
-                        columns={columns}
-                        data={users}
-                        emptyMessage="No users found. Click 'Add User' to create one."
-                    />
-                )}
-            </div>
 
-            {isModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                    <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
-                        <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                            <div>
-                                <h3 className="text-xl font-semibold text-gray-950 uppercase tracking-tight">{editingUserId ? "Edit User" : "Add User"}</h3>
-                                <p className="text-xs text-gray-400 font-bold mt-1.5 tracking-widest uppercase">{editingUserId ? "Update User Details" : "New User Registration"}</p>
-                            </div>
-                            <button onClick={closeModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all active:scale-95">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <form onSubmit={handleSave} className="p-8 space-y-6">
-                            <Input label="Full Name" placeholder="e.g. John Doe" required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
-                            <Input label="Email Address" type="email" placeholder="user@example.com" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
-                                <select
-                                    value={formData.role_id}
-                                    onChange={(e) => setFormData({ ...formData, role_id: Number(e.target.value) })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                    required
-                                >
-                                    {rolesLoading
-                                        ? <option>Loading...</option>
-                                        : roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)
-                                    }
-                                </select>
-                            </div>
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Status</label>
-                                <div className="flex items-center gap-6 py-4">
-                                    {[
-                                        { label: "Active", value: true },
-                                        { label: "Inactive", value: false }
-                                    ].map((status) => (
-                                        <label key={status.label} className="flex items-center gap-2 cursor-pointer group">
-                                            <div
-                                                onClick={() => setFormData({ ...formData, is_active: status.value })}
-                                                className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${formData.is_active === status.value ? "border-gray-950" : "border-gray-200"}`}
-                                            >
-                                                {formData.is_active === status.value && <div className="h-2 w-2 rounded-full bg-gray-950" />}
-                                            </div>
-                                            <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-950 transition-colors">{status.label}</span>
-                                        </label>
-                                    ))}
+                    <div ref={tableRef}>
+                        {!activeIp?.id ? (
+                            <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] p-12">
+                                <div className="flex flex-col items-center justify-center text-center">
+                                    <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                                        <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest mb-2">No Property Selected</h3>
+                                    <p className="text-xs text-gray-400">Please select a property to view and manage users.</p>
                                 </div>
                             </div>
-                            <div className="pt-2">
-                                <Button type="submit" disabled={isSaving} className="w-full">
-                                    {isSaving ? "SAVING..." : editingUserId ? "UPDATE USER" : "ADD USER"}
-                                </Button>
+                        ) : tableLoading ? (
+                            <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] overflow-hidden">
+                                <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+                                    <div className="h-10 w-64 bg-gray-100 rounded-xl animate-pulse" />
+                                    <div className="h-4 w-40 bg-gray-100 rounded-lg animate-pulse" />
+                                </div>
+                                <div className="border-b border-gray-50 px-6 py-2 flex gap-6">
+                                    {["Name", "Email", "Role", "Status"].map((h) => (
+                                        <div key={h} className="h-3 bg-gray-100 rounded animate-pulse flex-1" />
+                                    ))}
+                                </div>
+                                <table className="w-full">
+                                    <tbody>{Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}</tbody>
+                                </table>
                             </div>
-                        </form>
+                        ) : (
+                            <DataTable
+                                columns={columns}
+                                data={users}
+                                emptyMessage="No users found. Click 'Add User' to create one."
+                            />
+                        )}
                     </div>
-                </div>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
+                            <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                                <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+                                    <div>
+                                        <h3 className="text-xl font-semibold text-gray-950 uppercase tracking-tight">{editingUserId ? "Edit User" : "Add User"}</h3>
+                                        <p className="text-xs text-gray-400 font-bold mt-1.5 tracking-widest uppercase">{editingUserId ? "Update User Details" : "New User Registration"}</p>
+                                    </div>
+                                    <button onClick={closeModal} className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-950 transition-all active:scale-95">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                                <form onSubmit={handleSave} className="p-8 space-y-6">
+                                    <Input label="Full Name" placeholder="e.g. John Doe" required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
+                                    <Input label="Email Address" type="email" placeholder="user@example.com" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
+                                        <select
+                                            value={formData.role_id}
+                                            onChange={(e) => setFormData({ ...formData, role_id: Number(e.target.value) })}
+                                            className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                            required
+                                        >
+                                            {rolesLoading
+                                                ? <option>Loading...</option>
+                                                : roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)
+                                            }
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Status</label>
+                                        <div className="flex items-center gap-6 py-4">
+                                            {[
+                                                { label: "Active", value: true },
+                                                { label: "Inactive", value: false }
+                                            ].map((status) => (
+                                                <label key={status.label} className="flex items-center gap-2 cursor-pointer group">
+                                                    <div
+                                                        onClick={() => setFormData({ ...formData, is_active: status.value })}
+                                                        className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${formData.is_active === status.value ? "border-gray-950" : "border-gray-200"}`}
+                                                    >
+                                                        {formData.is_active === status.value && <div className="h-2 w-2 rounded-full bg-gray-950" />}
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-950 transition-colors">{status.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="pt-2">
+                                        <Button type="submit" disabled={isSaving} className="w-full">
+                                            {isSaving ? "SAVING..." : editingUserId ? "UPDATE USER" : "ADD USER"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

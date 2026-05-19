@@ -9,14 +9,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import AccessGuard from "@/components/AccessGuard";
-
-const hasPermission = (code) => {
-    if (typeof window === "undefined") return false;
-    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-    const isIpOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
-    if (isIpOwner) return true;
-    return perms.includes(code);
-};
+import { hasPermission } from "@/lib/permissions";
 
 export default function RolesPermissionsPage() {
     const { theme } = useTheme();
@@ -24,9 +17,10 @@ export default function RolesPermissionsPage() {
     const router = useRouter();
 
     // Permission checks
-    const canAdd = user?.role === "super_admin" || hasPermission("role:add");
-    const canEdit = user?.role === "super_admin" || hasPermission("role:edit");
-    const canDelete = user?.role === "super_admin" || hasPermission("role:del");
+    const canView = hasPermission("role:view", user);
+    const canAdd = hasPermission("role:add", user);
+    const canEdit = hasPermission("role:edit", user);
+    const canDelete = hasPermission("role:del", user);
 
     const [roles, setRoles] = useState([]);
     const [tableLoading, setTableLoading] = useState(true);

@@ -89,6 +89,16 @@ export function AuthProvider({ children }) {
         const userRole = items[0]?.role?.name || items[0]?.role || "IP Admin";
         localStorage.setItem("user_role_name", userRole);
 
+        // Store primary and secondary colors from first property
+        const firstProperty = items[0]?.property;
+        if (firstProperty) {
+          const themeColors = {
+            primary_color: firstProperty.primary_color || "#ea2e2e",
+            secondary_color: firstProperty.secondary_color || "#c6d8e2"
+          };
+          localStorage.setItem("property_colors", JSON.stringify(themeColors));
+        }
+
         // Extract and store permissions
         const permCodes = new Set();
         items.forEach(item => {
@@ -217,7 +227,8 @@ export function AuthProvider({ children }) {
       "user_permissions",
       "is_ip_owner",
       "user_role_name",
-      "metric_trees"
+      "metric_trees",
+      "property_colors"
     ];
 
     keysToRemove.forEach(key => localStorage.removeItem(key));

@@ -7,6 +7,7 @@ import { DataTable } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
+import { hasPermission } from "@/lib/permissions";
 
 const STATUS_OPTIONS = [
     { value: "pending", label: "Pending", color: "bg-amber-500" },
@@ -14,20 +15,13 @@ const STATUS_OPTIONS = [
     { value: "rejected", label: "Rejected", color: "bg-red-500" },
 ];
 
-const hasPermission = (code) => {
-    if (typeof window === "undefined") return false;
-    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-    const isIpOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
-    if (isIpOwner) return true;
-    return perms.includes(code);
-};
-
 export default function ApprovalsPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
 
     // Permission checks
-    const canApprove = user?.role === "super_admin" || hasPermission("approvals:edit") || hasPermission("approvals:add");
+    const canView = hasPermission("approvals:view", user);
+    const canApprove = hasPermission("approvals:edit", user) || hasPermission("approvals:add", user);
 
     // Change Requests state
     const [changeRequests, setChangeRequests] = useState([]);
