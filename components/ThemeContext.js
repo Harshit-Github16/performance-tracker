@@ -8,25 +8,58 @@ const ThemeContext = createContext();
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(initialTheme);
 
-  // Load persisted theme on mount
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('elev8_theme');
-      if (savedTheme) {
-        const parsed = JSON.parse(savedTheme);
-        setTheme({ ...initialTheme, ...parsed });
+    const loadTheme = () => {
+      let loadedTheme = { ...initialTheme };
+
+      try {
+        const savedTheme = localStorage.getItem('elev8_theme');
+        if (savedTheme) {
+          const parsed = JSON.parse(savedTheme);
+          const { primary_color, secondary_color, ...themeWithoutColors } = parsed;
+          loadedTheme = { ...loadedTheme, ...themeWithoutColors };
+
+          if (primary_color || secondary_color) {
+            localStorage.setItem('elev8_theme', JSON.stringify(themeWithoutColors));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load custom theme:", e);
+        localStorage.removeItem('elev8_theme');
       }
-    } catch (e) {
-      console.error("Failed to parse theme", e);
-      localStorage.removeItem('elev8_theme');
-    }
+
+      try {
+        const propertyColors = localStorage.getItem('property_colors');
+        if (propertyColors) {
+          const parsed = JSON.parse(propertyColors);
+          loadedTheme = { ...loadedTheme, ...parsed };
+        }
+      } catch (e) {
+        console.error("Failed to parse property colors:", e);
+      }
+
+      setTheme(loadedTheme);
+    };
+
+    loadTheme();
+
+    const handleColorsUpdate = (event) => {
+      setTheme((prev) => ({ ...prev, ...event.detail }));
+    };
+
+    window.addEventListener('property-colors-updated', handleColorsUpdate);
+
+    return () => {
+      window.removeEventListener('property-colors-updated', handleColorsUpdate);
+    };
   }, []);
 
   const updateTheme = useCallback((newTheme) => {
     setTheme((prev) => {
       const updated = { ...prev, ...newTheme };
       try {
-        localStorage.setItem('elev8_theme', JSON.stringify(updated));
+        const { primary_color, secondary_color, ...themeWithoutColors } = updated;
+        localStorage.setItem('elev8_theme', JSON.stringify(themeWithoutColors));
       } catch (e) {
         console.error("Failed to save theme", e);
       }

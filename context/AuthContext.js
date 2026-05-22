@@ -7,42 +7,37 @@ import { clearTokenCache } from "@/lib/apiClient";
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  // Initialize from localStorage synchronously to avoid flash of empty state
-  const [user, setUser] = useState(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const savedUser = localStorage.getItem("auth_user");
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const [activeIp, setActiveIpState] = useState(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const savedIp = localStorage.getItem("active_ip");
-      return savedIp ? JSON.parse(savedIp) : null;
-    } catch {
-      return null;
-    }
-  });
-
+  const [user, setUser] = useState(null);
+  const [activeIp, setActiveIpState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
-  // Fetch user properties and permissions on mount (page refresh)
   useEffect(() => {
-    const initializeAuth = async () => {
-      if (typeof window === "undefined") {
-        setLoading(false);
-        return;
-      }
+    setMounted(true);
 
+    try {
+      const savedUser = localStorage.getItem("auth_user");
+      if (savedUser) setUser(JSON.parse(savedUser));
+    } catch (e) {
+      console.error("Failed to load user:", e);
+    }
+
+    try {
+      const savedIp = localStorage.getItem("active_ip");
+      if (savedIp) setActiveIpState(JSON.parse(savedIp));
+    } catch (e) {
+      console.error("Failed to load active IP:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    const initializeAuth = async () => {
       const token = localStorage.getItem("auth_token");
       const savedUser = localStorage.getItem("auth_user");
 
-      // If no token or user, mark as not loading
       if (!token || !savedUser) {
         setLoading(false);
         return;
@@ -51,20 +46,13 @@ export function AuthProvider({ children }) {
       try {
         const parsedUser = JSON.parse(savedUser);
 
-        // Super admin doesn't need properties API call
-        if (parsedUser.role === "super_admin") {
-          setLoading(false);
-          return;
-        }
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_MY_PROPERTIES_ENDPOINT}`;
 
-        // Fetch properties and permissions for admin users
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_MY_PROPERTIES_ENDPOINT}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const response = await fetch(apiUrl, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
         if (!response.ok) {
-          // If API fails (401, etc), clear auth and redirect to login
           if (response.status === 401) {
             logout();
           }
@@ -76,30 +64,30 @@ export function AuthProvider({ children }) {
         const items = Array.isArray(data.data) ? data.data : [];
         const ips = items.map((item) => item.property);
 
-        // Update user with IPs
         const updatedUser = { ...parsedUser, ips };
         localStorage.setItem("auth_user", JSON.stringify(updatedUser));
         setUser(updatedUser);
 
-        // Check if user is IP Owner (role_id: 2)
         const isIpOwner = items.some(item => item.role_id === 2);
         localStorage.setItem("is_ip_owner", JSON.stringify(isIpOwner));
 
-        // Store user role name from first property
         const userRole = items[0]?.role?.name || items[0]?.role || "IP Admin";
         localStorage.setItem("user_role_name", userRole);
 
-        // Store primary and secondary colors from first property
         const firstProperty = items[0]?.property;
-        if (firstProperty) {
+        const primaryColor = firstProperty?.primary_color || items[0]?.primary_color;
+        const secondaryColor = firstProperty?.secondary_color || items[0]?.secondary_color;
+
+        if (primaryColor || secondaryColor) {
           const themeColors = {
-            primary_color: firstProperty.primary_color || "#ea2e2e",
-            secondary_color: firstProperty.secondary_color || "#c6d8e2"
+            primary_color: primaryColor || "#ea2e2e",
+            secondary_color: secondaryColor || "#c6d8e2"
           };
+
           localStorage.setItem("property_colors", JSON.stringify(themeColors));
+          window.dispatchEvent(new CustomEvent('property-colors-updated', { detail: themeColors }));
         }
 
-        // Extract and store permissions
         const permCodes = new Set();
         items.forEach(item => {
           if (Array.isArray(item.permissions)) {
@@ -108,7 +96,6 @@ export function AuthProvider({ children }) {
         });
         localStorage.setItem("user_permissions", JSON.stringify([...permCodes]));
 
-        // Fetch metric categories tree for each property
         const metricTreePromises = ips.map(async (ip) => {
           const sportId = ip.sport_id || ip.sport?.id;
           if (!sportId) return null;
@@ -123,7 +110,7 @@ export function AuthProvider({ children }) {
               return { propertyId: ip.id, sportId, tree: treeData.data || treeData };
             }
           } catch (err) {
-            console.error(`Failed to fetch metric tree for sport ${sportId}:`, err);
+            console.error(`Metric tree fetch failed for sport ${sportId}:`, err);
           }
           return null;
         });
@@ -131,7 +118,6 @@ export function AuthProvider({ children }) {
         const metricTrees = await Promise.all(metricTreePromises);
         const validTrees = metricTrees.filter(Boolean);
 
-        // Store metric trees
         if (validTrees.length > 0) {
           const treesMap = {};
           validTrees.forEach(({ propertyId, sportId, tree }) => {
@@ -141,14 +127,14 @@ export function AuthProvider({ children }) {
         }
 
       } catch (error) {
-        console.error("Error initializing auth:", error);
+        console.error("Auth initialization error:", error);
       }
 
       setLoading(false);
     };
 
     initializeAuth();
-  }, []); // Run only once on mount
+  }, [mounted]);
 
   const setActiveIp = useCallback((ip) => {
     setActiveIpState(ip);
@@ -217,7 +203,6 @@ export function AuthProvider({ children }) {
     setActiveIpState(null);
     clearTokenCache();
 
-    // Clear all auth-related data
     const keysToRemove = [
       "auth_user",
       "auth_token",
