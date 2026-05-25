@@ -12,6 +12,7 @@ import { ServerPaginatedTable } from "@/components/ServerPaginatedTable";
 import apiClient from "@/lib/apiClient";
 import secureStorage from "@/lib/secureStorage";
 import { uploadImageToGCP } from "@/lib/uploadToGCP";
+import ExcelImportForm from "@/components/ExcelImportForm";
 
 const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Stats", "Requests", "Edit Details"];
 
@@ -98,6 +99,9 @@ export default function EditionDetailPage() {
         match_no: "", round: "", team1_id: "", team2_id: "",
         scheduled_at: "", actual_start_time: "", actual_end_time: "", venue: "",
     });
+    const [matchImportMode, setMatchImportMode] = useState(false);
+    const [playerImportMode, setPlayerImportMode] = useState(false);
+    const [teamImportMode, setTeamImportMode] = useState(false);
 
     const pageRef = useRef(null);
     const headerRef = useRef(null);
@@ -334,24 +338,30 @@ export default function EditionDetailPage() {
     };
 
     const handleSubmitMetricRow = async (definitionId) => {
-        const rowData = metricRowData[definitionId];
-
-        if (!rowData) {
-            toast.error("Please fill all fields");
-            return;
+        let definition = null;
+        if (metricTree && Array.isArray(metricTree)) {
+            for (const category of metricTree) {
+                const found = category.metric_definitions?.find(d => d.id === definitionId);
+                if (found) {
+                    definition = found;
+                    break;
+                }
+            }
         }
 
-        if (!rowData.match_id) {
+        const rowData = metricRowData[definitionId] || {};
+
+        if (definition?.is_match_required && !rowData.match_id) {
             toast.error("Please select a match");
             return;
         }
 
-        if (!rowData.person_id) {
+        if (definition?.is_player_required && !rowData.person_id) {
             toast.error("Please select a player");
             return;
         }
 
-        if (!rowData.value && rowData.value !== 0 && rowData.value !== false) {
+        if (rowData.value === undefined || rowData.value === null || rowData.value === "") {
             toast.error("Please enter a value");
             return;
         }
@@ -361,8 +371,8 @@ export default function EditionDetailPage() {
         const payload = {
             metric_definition_id: definitionId,
             edition_id: Number(id),
-            match_id: Number(rowData.match_id),
-            person_id: Number(rowData.person_id),
+            match_id: definition?.is_match_required && rowData.match_id ? Number(rowData.match_id) : null,
+            person_id: definition?.is_player_required && rowData.person_id ? Number(rowData.person_id) : null,
             recorded_date: currentDate,
             value_text: String(rowData.value)
         };
@@ -719,6 +729,7 @@ export default function EditionDetailPage() {
     };
 
     const openPlayerModal = (player = null) => {
+        setPlayerImportMode(false);
         if (player) {
             setEditingPlayerId(player.id);
             setPlayerForm({
@@ -822,6 +833,7 @@ export default function EditionDetailPage() {
     };
 
     const openTeamModal = (team = null) => {
+        setTeamImportMode(false);
         if (team) {
             setEditingTeamId(team.id);
             setTeamForm({ name: team.name || "", short_name: team.short_name || "", logo: null, logoPreview: team.logo_url || "" });
@@ -933,7 +945,17 @@ export default function EditionDetailPage() {
         });
     };
 
+    const toLocalISOString = (utcString) => {
+        if (!utcString) return "";
+        const date = new Date(utcString);
+        if (isNaN(date.getTime())) return "";
+        const offset = date.getTimezoneOffset();
+        const localDate = new Date(date.getTime() - offset * 60 * 1000);
+        return localDate.toISOString().slice(0, 16);
+    };
+
     const openMatchModal = (match = null) => {
+        setMatchImportMode(false);
         if (match) {
             setEditingMatchId(match.id);
             setMatchForm({
@@ -941,9 +963,9 @@ export default function EditionDetailPage() {
                 round: match.round || "",
                 team1_id: match.team1_id || "",
                 team2_id: match.team2_id || "",
-                scheduled_at: match.scheduled_at?.slice(0, 16) || "",
-                actual_start_time: match.actual_start_time?.slice(0, 16) || "",
-                actual_end_time: match.actual_end_time?.slice(0, 16) || "",
+                scheduled_at: toLocalISOString(match.scheduled_at),
+                actual_start_time: toLocalISOString(match.actual_start_time),
+                actual_end_time: toLocalISOString(match.actual_end_time),
                 venue: match.venue || "",
             });
         } else {
@@ -1510,38 +1532,46 @@ export default function EditionDetailPage() {
                                                                     <span className="text-sm font-semibold text-gray-950">{definition.label}</span>
                                                                 </td>
                                                                 <td className="px-4 py-3">
-                                                                    <select
-                                                                        value={rowData.match_id || ""}
-                                                                        onChange={(e) => updateMetricRowData(definition.id, "match_id", e.target.value)}
-                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                    >
-                                                                        <option value="">Select match</option>
-                                                                        {matches.map(match => {
-                                                                            const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
-                                                                            const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
-                                                                            const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
-                                                                            const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
-                                                                            return (
-                                                                                <option key={match.id} value={match.id}>
-                                                                                    #{match.match_no} - {t1Name} vs {t2Name}
-                                                                                </option>
-                                                                            );
-                                                                        })}
-                                                                    </select>
+                                                                    {definition.is_match_required ? (
+                                                                        <select
+                                                                            value={rowData.match_id || ""}
+                                                                            onChange={(e) => updateMetricRowData(definition.id, "match_id", e.target.value)}
+                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                        >
+                                                                            <option value="">Select match</option>
+                                                                            {matches.map(match => {
+                                                                                const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                                                                const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                                                                const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                                                                const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                                                                return (
+                                                                                    <option key={match.id} value={match.id}>
+                                                                                        #{match.match_no} - {t1Name} vs {t2Name}
+                                                                                    </option>
+                                                                                );
+                                                                            })}
+                                                                        </select>
+                                                                    ) : (
+                                                                        <span className="text-sm text-gray-400 font-semibold px-2">—</span>
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-4 py-3">
-                                                                    <select
-                                                                        value={rowData.person_id || ""}
-                                                                        onChange={(e) => updateMetricRowData(definition.id, "person_id", e.target.value)}
-                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                    >
-                                                                        <option value="">Select player</option>
-                                                                        {players.map(player => (
-                                                                            <option key={player.id} value={player.id}>
-                                                                                {player.full_name} {player.role && player.role !== "PLAYER" ? `(${player.role})` : ""}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
+                                                                    {definition.is_player_required ? (
+                                                                        <select
+                                                                            value={rowData.person_id || ""}
+                                                                            onChange={(e) => updateMetricRowData(definition.id, "person_id", e.target.value)}
+                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                        >
+                                                                            <option value="">Select player</option>
+                                                                            {players.map(player => (
+                                                                                <option key={player.id} value={player.id}>
+                                                                                    {player.full_name} {player.role && player.role !== "PLAYER" ? `(${player.role})` : ""}
+                                                                                </option>
+                                                                            ))}
+                                                                        </select>
+                                                                    ) : (
+                                                                        <span className="text-sm text-gray-400 font-semibold px-2">—</span>
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-4 py-3">
                                                                     {definition.data_type === "boolean" ? (
@@ -1952,8 +1982,8 @@ export default function EditionDetailPage() {
             {
                 mounted && isMatchModalOpen && typeof window !== "undefined" && document?.body && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                        <div ref={modalRef} className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
-                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20 sticky top-0 bg-white">
+                        <div ref={modalRef} className={`bg-white w-full ${matchImportMode ? "max-w-3xl" : "max-w-lg"} rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto transition-all duration-300`}>
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20 sticky top-0 bg-white z-10">
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingMatchId ? "Edit Match" : "Add Match"}</h3>
                                     <p className="text-xs text-gray-400 font-bold mt-1 tracking-widest uppercase">Match Details</p>
@@ -1962,37 +1992,72 @@ export default function EditionDetailPage() {
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
-                            <form onSubmit={handleSaveMatch} className="p-6 space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input label="Match No" type="number" placeholder="1" required value={matchForm.match_no} onChange={(e) => setMatchForm({ ...matchForm, match_no: e.target.value })} />
-                                    <Input label="Round" placeholder="Group Stage" required value={matchForm.round} onChange={(e) => setMatchForm({ ...matchForm, round: e.target.value })} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 1</label>
-                                        <select required value={matchForm.team1_id} onChange={(e) => setMatchForm({ ...matchForm, team1_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                            <option value="">Select team</option>
-                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
+
+                            {!editingMatchId && (
+                                <div className="px-6 pt-4 bg-white">
+                                    <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                                        <button
+                                            type="button"
+                                            onClick={() => setMatchImportMode(false)}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${!matchImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                        >
+                                            Manual Entry
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setMatchImportMode(true)}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${matchImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                        >
+                                            Excel Import
+                                        </button>
                                     </div>
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 2</label>
-                                        <select required value={matchForm.team2_id} onChange={(e) => setMatchForm({ ...matchForm, team2_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                            <option value="">Select team</option>
-                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
+                                </div>
+                            )}
+
+                            {matchImportMode ? (
+                                <div className="p-6">
+                                    <ExcelImportForm
+                                        type="matches"
+                                        editionId={id}
+                                        teams={teams}
+                                        onSuccess={fetchMatches}
+                                        onClose={closeMatchModal}
+                                        theme={theme}
+                                    />
+                                </div>
+                            ) : (
+                                <form onSubmit={handleSaveMatch} className="p-6 space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Input label="Match No" type="number" placeholder="1" required value={matchForm.match_no} onChange={(e) => setMatchForm({ ...matchForm, match_no: e.target.value })} />
+                                        <Input label="Round" placeholder="Group Stage" required value={matchForm.round} onChange={(e) => setMatchForm({ ...matchForm, round: e.target.value })} />
                                     </div>
-                                </div>
-                                <Input label="Venue" placeholder="Stadium A" value={matchForm.venue} onChange={(e) => setMatchForm({ ...matchForm, venue: e.target.value })} />
-                                <Input label="Scheduled At" type="datetime-local" value={matchForm.scheduled_at} onChange={(e) => setMatchForm({ ...matchForm, scheduled_at: e.target.value })} />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input label="Actual Start" type="datetime-local" value={matchForm.actual_start_time} onChange={(e) => setMatchForm({ ...matchForm, actual_start_time: e.target.value })} />
-                                    <Input label="Actual End" type="datetime-local" value={matchForm.actual_end_time} onChange={(e) => setMatchForm({ ...matchForm, actual_end_time: e.target.value })} />
-                                </div>
-                                <Button type="submit" disabled={isSaving} className="w-full">
-                                    {isSaving ? "SAVING..." : editingMatchId ? "SAVE CHANGES" : "CREATE MATCH"}
-                                </Button>
-                            </form>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 1</label>
+                                            <select required value={matchForm.team1_id} onChange={(e) => setMatchForm({ ...matchForm, team1_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                                <option value="">Select team</option>
+                                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team 2</label>
+                                            <select required value={matchForm.team2_id} onChange={(e) => setMatchForm({ ...matchForm, team2_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                                <option value="">Select team</option>
+                                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <Input label="Venue" placeholder="Stadium A" value={matchForm.venue} onChange={(e) => setMatchForm({ ...matchForm, venue: e.target.value })} />
+                                    <Input label="Scheduled At" type="datetime-local" value={matchForm.scheduled_at} onChange={(e) => setMatchForm({ ...matchForm, scheduled_at: e.target.value })} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Input label="Actual Start" type="datetime-local" value={matchForm.actual_start_time} onChange={(e) => setMatchForm({ ...matchForm, actual_start_time: e.target.value })} />
+                                        <Input label="Actual End" type="datetime-local" value={matchForm.actual_end_time} onChange={(e) => setMatchForm({ ...matchForm, actual_end_time: e.target.value })} />
+                                    </div>
+                                    <Button type="submit" disabled={isSaving} className="w-full">
+                                        {isSaving ? "SAVING..." : editingMatchId ? "SAVE CHANGES" : "CREATE MATCH"}
+                                    </Button>
+                                </form>
+                            )}
                         </div>
                     </div>,
                     document.body
@@ -2003,7 +2068,7 @@ export default function EditionDetailPage() {
             {
                 mounted && isPlayerModalOpen && typeof window !== "undefined" && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                        <div ref={playerModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div ref={playerModalRef} className={`bg-white w-full ${playerImportMode ? "max-w-3xl" : "max-w-md"} rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden transition-all duration-300`}>
                             <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingPlayerId ? "Edit Person" : "Add Person"}</h3>
@@ -2013,68 +2078,103 @@ export default function EditionDetailPage() {
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
-                            <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
-                                <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
 
-                                {}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Player Image</label>
-                                    <div
-                                        onClick={() => playerImageRef.current?.click()}
-                                        className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
-                                    >
-                                        <input
-                                            type="file"
-                                            ref={playerImageRef}
-                                            onChange={handlePlayerImageChange}
-                                            accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
-                                            className="hidden"
-                                        />
-                                        {playerForm.imagePreview ? (
-                                            <img src={playerForm.imagePreview} alt="Player Preview" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <>
-                                                <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                    </svg>
-                                                </div>
-                                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Image</span>
-                                            </>
-                                        )}
+                            {!editingPlayerId && (
+                                <div className="px-6 pt-4 bg-white">
+                                    <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPlayerImportMode(false)}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${!playerImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                        >
+                                            Manual Entry
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPlayerImportMode(true)}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${playerImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                        >
+                                            Excel Import
+                                        </button>
                                     </div>
                                 </div>
+                            )}
 
-                                <div className="grid grid-cols-2 gap-4">
+                            {playerImportMode ? (
+                                <div className="p-6">
+                                    <ExcelImportForm
+                                        type="players"
+                                        editionId={id}
+                                        teams={teams}
+                                        onSuccess={fetchPlayers}
+                                        onClose={closePlayerModal}
+                                        theme={theme}
+                                    />
+                                </div>
+                            ) : (
+                                <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
+                                    <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
+
+                                    {}
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Player Image</label>
+                                        <div
+                                            onClick={() => playerImageRef.current?.click()}
+                                            className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
+                                        >
+                                            <input
+                                                type="file"
+                                                ref={playerImageRef}
+                                                onChange={handlePlayerImageChange}
+                                                accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
+                                                className="hidden"
+                                            />
+                                            {playerForm.imagePreview ? (
+                                                <img src={playerForm.imagePreview} alt="Player Preview" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                        </svg>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Image</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
+                                            <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                                {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
+                                            <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                                <option value="">No Team</option>
+                                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
                                     <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
-                                        <select required value={playerForm.role} onChange={(e) => setPlayerForm({ ...playerForm, role: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
+                                        <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
+                                            <option value="KADAMBA">KADAMBA</option>
+                                            <option value="SISPORT">SISPORT</option>
+                                            <option value="VOTKBD">VOTKBD</option>
+                                            <option value="STARSELEV8">STARSELEV8</option>
+                                            <option value="YKS">YKS</option>
                                         </select>
                                     </div>
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team</label>
-                                        <select value={playerForm.team_id} onChange={(e) => setPlayerForm({ ...playerForm, team_id: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                            <option value="">No Team</option>
-                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                                <Input label="External ID" placeholder="e.g. P001 (optional)" value={playerForm.external_id} onChange={(e) => setPlayerForm({ ...playerForm, external_id: e.target.value })} />
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Source</label>
-                                    <select value={playerForm.source} onChange={(e) => setPlayerForm({ ...playerForm, source: e.target.value })} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all">
-                                        <option value="KADAMBA">KADAMBA</option>
-                                        <option value="SISPORT">SISPORT</option>
-                                        <option value="VOTKBD">VOTKBD</option>
-                                        <option value="STARSELEV8">STARSELEV8</option>
-                                        <option value="YKS">YKS</option>
-                                    </select>
-                                </div>
-                                <Button type="submit" disabled={isSavingPlayer} className="w-full">
-                                    {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
-                                </Button>
-                            </form>
+                                    <Button type="submit" disabled={isSavingPlayer} className="w-full">
+                                        {isSavingPlayer ? "SAVING..." : editingPlayerId ? "SAVE CHANGES" : "REGISTER PLAYER"}
+                                    </Button>
+                                </form>
+                            )}
                         </div>
                     </div>,
                     document.body
@@ -2122,7 +2222,7 @@ export default function EditionDetailPage() {
             {
                 mounted && isTeamModalOpen && typeof window !== "undefined" && document?.body && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                        <div ref={teamModalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                        <div ref={teamModalRef} className={`bg-white w-full ${teamImportMode ? "max-w-3xl" : "max-w-md"} rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden transition-all duration-300`}>
                             <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-950 uppercase tracking-tight">{editingTeamId ? "Edit Team" : "Add Team"}</h3>
@@ -2132,43 +2232,78 @@ export default function EditionDetailPage() {
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
-                            <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
-                                <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
-                                <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
 
-                                {}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
-                                    <div
-                                        onClick={() => teamLogoRef.current?.click()}
-                                        className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
-                                    >
-                                        <input
-                                            type="file"
-                                            ref={teamLogoRef}
-                                            onChange={handleTeamLogoChange}
-                                            accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
-                                            className="hidden"
-                                        />
-                                        {teamForm.logoPreview ? (
-                                            <img src={teamForm.logoPreview} alt="Team Logo Preview" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <>
-                                                <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                    </svg>
-                                                </div>
-                                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Logo</span>
-                                            </>
-                                        )}
+                            {!editingTeamId && (
+                                <div className="px-6 pt-4 bg-white">
+                                    <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTeamImportMode(false)}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${!teamImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                        >
+                                            Manual Entry
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTeamImportMode(true)}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${teamImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                        >
+                                            Excel Import
+                                        </button>
                                     </div>
                                 </div>
+                            )}
 
-                                <Button type="submit" disabled={isSavingTeam} className="w-full">
-                                    {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
-                                </Button>
-                            </form>
+                            {teamImportMode ? (
+                                <div className="p-6">
+                                    <ExcelImportForm
+                                        type="teams"
+                                        editionId={id}
+                                        teams={teams}
+                                        onSuccess={fetchTeams}
+                                        onClose={closeTeamModal}
+                                        theme={theme}
+                                    />
+                                </div>
+                            ) : (
+                                <form onSubmit={handleSaveTeam} className="p-6 space-y-4">
+                                    <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
+                                    <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
+
+                                    {}
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
+                                        <div
+                                            onClick={() => teamLogoRef.current?.click()}
+                                            className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 hover:bg-white hover:border-gray-200 transition-all cursor-pointer group relative overflow-hidden"
+                                        >
+                                            <input
+                                                type="file"
+                                                ref={teamLogoRef}
+                                                onChange={handleTeamLogoChange}
+                                                accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp"
+                                                className="hidden"
+                                            />
+                                            {teamForm.logoPreview ? (
+                                                <img src={teamForm.logoPreview} alt="Team Logo Preview" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <div className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 mb-2 group-hover:text-gray-950 group-hover:scale-110 transition-all shadow-sm">
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                        </svg>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Upload Logo</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <Button type="submit" disabled={isSavingTeam} className="w-full">
+                                        {isSavingTeam ? "SAVING..." : editingTeamId ? "SAVE CHANGES" : "CREATE TEAM"}
+                                    </Button>
+                                </form>
+                            )}
                         </div>
                     </div>,
                     document.body
