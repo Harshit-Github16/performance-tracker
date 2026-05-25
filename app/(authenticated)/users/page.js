@@ -8,6 +8,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { hasPermission } from "@/lib/permissions";
+import ExcelImportForm from "@/components/ExcelImportForm";
 
 const SkeletonRow = () => (
     <tr className="border-b border-gray-50">
@@ -35,6 +36,7 @@ export default function UsersPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [editingUserId, setEditingUserId] = useState(null);
     const [formData, setFormData] = useState({ full_name: "", email: "", role_id: "", is_active: true });
+    const [userImportMode, setUserImportMode] = useState(false);
 
     const pageRef = useRef(null);
     const headerRef = useRef(null);
@@ -109,6 +111,7 @@ export default function UsersPage() {
     };
 
     const openModal = async (user = null) => {
+        setUserImportMode(false);
         if (user) {
             setEditingUserId(user.access_id);
             await fetchRoles();
@@ -333,7 +336,7 @@ export default function UsersPage() {
 
                     {isModalOpen && (
                         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
-                            <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
+                            <div ref={modalRef} className={`bg-white w-full ${userImportMode ? "max-w-3xl" : "max-w-md"} rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden transition-all duration-300`}>
                                 <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
                                     <div>
                                         <h3 className="text-xl font-semibold text-gray-950 uppercase tracking-tight">{editingUserId ? "Edit User" : "Add User"}</h3>
@@ -343,48 +346,84 @@ export default function UsersPage() {
                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                     </button>
                                 </div>
-                                <form onSubmit={handleSave} className="p-8 space-y-6">
-                                    <Input label="Full Name" placeholder="e.g. John Doe" required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
-                                    <Input label="Email Address" type="email" placeholder="user@example.com" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
-                                        <select
-                                            value={formData.role_id}
-                                            onChange={(e) => setFormData({ ...formData, role_id: Number(e.target.value) })}
-                                            className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                            required
-                                        >
-                                            {rolesLoading
-                                                ? <option>Loading...</option>
-                                                : roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)
-                                            }
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Status</label>
-                                        <div className="flex items-center gap-6 py-4">
-                                            {[
-                                                { label: "Active", value: true },
-                                                { label: "Inactive", value: false }
-                                            ].map((status) => (
-                                                <label key={status.label} className="flex items-center gap-2 cursor-pointer group">
-                                                    <div
-                                                        onClick={() => setFormData({ ...formData, is_active: status.value })}
-                                                        className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${formData.is_active === status.value ? "border-gray-950" : "border-gray-200"}`}
-                                                    >
-                                                        {formData.is_active === status.value && <div className="h-2 w-2 rounded-full bg-gray-950" />}
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-950 transition-colors">{status.label}</span>
-                                                </label>
-                                            ))}
+
+                                {!editingUserId && (
+                                    <div className="px-8 pt-4 bg-white">
+                                        <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                                            <button
+                                                type="button"
+                                                onClick={() => setUserImportMode(false)}
+                                                className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${!userImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                            >
+                                                Manual Entry
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setUserImportMode(true)}
+                                                className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${userImportMode ? "bg-white text-gray-950 shadow-sm" : "text-gray-400 hover:text-gray-950"}`}
+                                            >
+                                                Excel Import
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="pt-2">
-                                        <Button type="submit" disabled={isSaving} className="w-full">
-                                            {isSaving ? "SAVING..." : editingUserId ? "UPDATE USER" : "ADD USER"}
-                                        </Button>
+                                )}
+
+                                {userImportMode ? (
+                                    <div className="p-8">
+                                        <ExcelImportForm
+                                            type="users"
+                                            editionId={null}
+                                            teams={[]}
+                                            roles={roles}
+                                            onSuccess={fetchUsers}
+                                            onClose={closeModal}
+                                            theme={theme}
+                                        />
                                     </div>
-                                </form>
+                                ) : (
+                                    <form onSubmit={handleSave} className="p-8 space-y-6">
+                                        <Input label="Full Name" placeholder="e.g. John Doe" required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
+                                        <Input label="Email Address" type="email" placeholder="user@example.com" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Role</label>
+                                            <select
+                                                value={formData.role_id}
+                                                onChange={(e) => setFormData({ ...formData, role_id: Number(e.target.value) })}
+                                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                required
+                                            >
+                                                {rolesLoading
+                                                    ? <option>Loading...</option>
+                                                    : roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)
+                                                }
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Status</label>
+                                            <div className="flex items-center gap-6 py-4">
+                                                {[
+                                                    { label: "Active", value: true },
+                                                    { label: "Inactive", value: false }
+                                                ].map((status) => (
+                                                    <label key={status.label} className="flex items-center gap-2 cursor-pointer group">
+                                                        <div
+                                                            onClick={() => setFormData({ ...formData, is_active: status.value })}
+                                                            className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${formData.is_active === status.value ? "border-gray-950" : "border-gray-200"}`}
+                                                        >
+                                                            {formData.is_active === status.value && <div className="h-2 w-2 rounded-full bg-gray-950" />}
+                                                        </div>
+                                                        <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-950 transition-colors">{status.label}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="pt-2">
+                                            <Button type="submit" disabled={isSaving} className="w-full">
+                                                {isSaving ? "SAVING..." : editingUserId ? "UPDATE USER" : "ADD USER"}
+                                            </Button>
+                                        </div>
+                                    </form>
+                                )}
                             </div>
                         </div>
                     )}
