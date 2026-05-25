@@ -933,6 +933,15 @@ export default function EditionDetailPage() {
         });
     };
 
+    const toLocalISOString = (utcString) => {
+        if (!utcString) return "";
+        const date = new Date(utcString);
+        if (isNaN(date.getTime())) return "";
+        const offset = date.getTimezoneOffset();
+        const localDate = new Date(date.getTime() - offset * 60 * 1000);
+        return localDate.toISOString().slice(0, 16);
+    };
+
     const openMatchModal = (match = null) => {
         if (match) {
             setEditingMatchId(match.id);
@@ -941,9 +950,9 @@ export default function EditionDetailPage() {
                 round: match.round || "",
                 team1_id: match.team1_id || "",
                 team2_id: match.team2_id || "",
-                scheduled_at: match.scheduled_at?.slice(0, 16) || "",
-                actual_start_time: match.actual_start_time?.slice(0, 16) || "",
-                actual_end_time: match.actual_end_time?.slice(0, 16) || "",
+                scheduled_at: toLocalISOString(match.scheduled_at),
+                actual_start_time: toLocalISOString(match.actual_start_time),
+                actual_end_time: toLocalISOString(match.actual_end_time),
                 venue: match.venue || "",
             });
         } else {

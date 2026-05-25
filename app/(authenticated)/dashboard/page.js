@@ -170,7 +170,7 @@ export default function DashboardPage() {
   return (
     <div ref={pageRef} className="space-y-6 opacity-0">
 
-      {}
+      { }
       <div className="px-4">
         <div className="flex items-center justify-between">
           <div>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {}
+          { }
           {showIpDashboard && editions.length > 0 && (
             <div className="flex items-center gap-3">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Edition:</label>
@@ -205,10 +205,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {}
+      { }
       {showSuperAdminDashboard && (
         <>
-          {}
+          { }
           {loading && (
             <div className="px-4">
               <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -221,7 +221,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {}
+          { }
           {!loading && !adminDashboardData && (
             <div className="px-4">
               <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -236,10 +236,10 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {}
+          { }
           {!loading && adminDashboardData && (
             <>
-              {}
+              { }
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 px-4">
                 {[
                   { label: "Total Properties", value: adminDashboardData.system_overview?.total_properties, icon: "🏢", color: P },
@@ -261,9 +261,9 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              {}
+              { }
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
-                {}
+                { }
                 <div ref={el => chartsRef.current[0] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Change Request Queue</h3>
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {}
+                { }
                 <div ref={el => chartsRef.current[1] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Data Quality</h3>
@@ -357,9 +357,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {}
+              { }
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
-                {}
+                { }
                 <div ref={el => chartsRef.current[2] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Users by Role</h3>
@@ -380,7 +380,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {}
+                { }
                 <div ref={el => chartsRef.current[3] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Metric Health</h3>
@@ -414,7 +414,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {}
+              { }
               <div className="px-4">
                 <div ref={el => chartsRef.current[4] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
@@ -449,7 +449,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {}
+      { }
       {!showSuperAdminDashboard && showIpDashboard && loading && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -462,7 +462,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {}
+      { }
       {!showSuperAdminDashboard && showIpDashboard && !loading && editions.length === 0 && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -477,7 +477,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {}
+      { }
       {!showSuperAdminDashboard && showIpDashboard && !loading && editions.length > 0 && selectedEditionId && !dashboardData && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -492,10 +492,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {}
+      { }
       {!showSuperAdminDashboard && showIpDashboard && !loading && dashboardData && (
         <>
-          {}
+          { }
           <div className="px-4">
             <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
               <div className="flex items-center justify-between">
@@ -511,7 +511,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {}
+          { }
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4">
             {dashboardData.metrics?.slice(0, 8).map((metric, i) => {
               const icons = ["🏆", "👥", "📍", "⚡", "📅", "💼", "👔", "🎯"];
@@ -531,9 +531,9 @@ export default function DashboardPage() {
             })}
           </div>
 
-          {}
+          { }
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
-            {}
+            { }
             <ChartCard title="Raid & Tackle Statistics" subtitle="Performance" refEl={el => chartsRef.current[0] = el}>
               <div className="space-y-4">
                 {dashboardData.metrics?.filter(m =>
@@ -558,7 +558,7 @@ export default function DashboardPage() {
               </div>
             </ChartCard>
 
-            {}
+            { }
             <ChartCard title="Special Achievements" subtitle="Highlights" refEl={el => chartsRef.current[1] = el}>
               <div className="grid grid-cols-2 gap-3">
                 {dashboardData.metrics?.filter(m =>
@@ -579,7 +579,7 @@ export default function DashboardPage() {
               </div>
             </ChartCard>
 
-            {}
+            { }
             <ChartCard title="Disciplinary Cards" subtitle="Match Conduct" refEl={el => chartsRef.current[2] = el}>
               <div className="space-y-4">
                 {dashboardData.metrics?.filter(m => m.metric.includes("Card")).map((metric, i) => {
@@ -601,9 +601,9 @@ export default function DashboardPage() {
             </ChartCard>
           </div>
 
-          {}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
-            {}
+          { }
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 px-4">
+            { }
             <ChartCard title="Staff Distribution" subtitle="Team Personnel" refEl={el => chartsRef.current[3] = el}>
               <div className="space-y-3">
                 {dashboardData.metrics?.filter(m =>
@@ -629,36 +629,11 @@ export default function DashboardPage() {
               </div>
             </ChartCard>
 
-            {}
-            <ChartCard title="Financial Overview" subtitle="Prize Money & Contributions" refEl={el => chartsRef.current[4] = el}>
-              <div className="space-y-3">
-                {dashboardData.metrics?.filter(m =>
-                  m.metric.includes("Prize Money") || m.metric.includes("Contribution")
-                ).map((metric, i) => {
-                  const isTopPrize = i === 0;
-                  const prizeColors = ["#f59e0b", "#94a3b8", "#cd7f32", "#10b981", "#6366f1"];
-                  const prizeIcons = ["🥇", "🥈", "🥉", "💰", "💵"];
-                  return (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: `${prizeColors[i % prizeColors.length]}10` }}>
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg flex items-center justify-center text-xl" style={{ backgroundColor: `${prizeColors[i % prizeColors.length]}20` }}>
-                          {prizeIcons[i % prizeIcons.length]}
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{metric.metric}</p>
-                          <p className="text-lg font-black" style={{ color: prizeColors[i % prizeColors.length] }}>
-                            ₹{metric.value?.toLocaleString() || 0}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ChartCard>
+            { }
+
           </div>
 
-          {}
+          { }
           <div className="px-4">
             <ChartCard title="All Metrics Overview" subtitle="Complete Statistics" refEl={el => chartsRef.current[5] = el}>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
