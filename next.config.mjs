@@ -43,6 +43,7 @@ const nextConfig = {
     NEXT_PUBLIC_GCP_BUCKET_NAME: "elev8-apps",
     NEXT_PUBLIC_GCP_PROJECT_FOLDER: "performance-tracker",
     NEXT_PUBLIC_UPLOAD_ENDPOINT: "/upload",
+    NEXT_PUBLIC_UPLOAD_BULK_ENDPOINT: "/upload/bulk",
   },
 };
 

@@ -280,110 +280,61 @@ export default function ExcelImportForm({
     setParsedData(validated);
   };
 
-  // Perform bulk import by sending sequential POST requests to API
+  // Perform bulk import by sending the entire file to the bulk upload API
   const handleImport = async () => {
-    const validRows = parsedData.filter((item) => item.status.valid);
-    if (validRows.length === 0) {
-      toast.error("No valid rows available to import.");
+    if (!file) {
+      toast.error("No file selected.");
       return;
     }
 
     setImporting(true);
     setProgress(0);
-    setImportLogs([]);
+    setImportLogs(["Initializing bulk upload..."]);
+
     const activeIp = secureStorage.getItem("active_ip");
 
-    let successCount = 0;
-    let failCount = 0;
+    // Create FormData for file upload
+    const formData = new FormData();
+    formData.append("file", file);
 
-    for (let i = 0; i < validRows.length; i++) {
-      const { mapped } = validRows[i];
-      const logPrefix = `Row ${mapped.rowNum}: `;
-      setImportLogs((prev) => [...prev, `${logPrefix}Uploading...`]);
+    // Map internal type names to server expectations: 'team', 'person', 'match', 'user'
+    let uploadType = "";
+    if (type === "matches") uploadType = "match";
+    else if (type === "teams") uploadType = "team";
+    else if (type === "players") uploadType = "person";
+    else if (type === "users") uploadType = "user";
 
-      let result;
-      if (type === "matches") {
-        const payload = {
-          property_id: activeIp?.id,
-          edition_id: Number(editionId),
-          match_no: mapped.match_no,
-          round: mapped.round,
-          team1_id: mapped.team1_id,
-          team2_id: mapped.team2_id,
-          scheduled_at: mapped.scheduled_at || undefined,
-          actual_start_time: mapped.actual_start_time || undefined,
-          actual_end_time: mapped.actual_end_time || undefined,
-          venue: mapped.venue || "",
-        };
-        result = await apiClient.post(process.env.NEXT_PUBLIC_MATCHES_ENDPOINT, payload);
-      } else if (type === "teams") {
-        const payload = {
-          property_id: activeIp?.id,
-          name: mapped.name,
-          short_name: mapped.short_name,
-          logo_url: mapped.logo_url || "",
-        };
-        result = await apiClient.post(
-          `${process.env.NEXT_PUBLIC_TEAMS_ENDPOINT}?property_id=${activeIp?.id}`,
-          payload
-        );
-      } else if (type === "players") {
-        const payload = {
-          property_id: activeIp?.id,
-          full_name: mapped.full_name,
-          role: mapped.role,
-          external_id: mapped.external_id || undefined,
-          source: mapped.source || "manual",
-          edition_id: Number(editionId),
-          team_id: mapped.team_id || undefined,
-          image: mapped.image || "",
-        };
-        result = await apiClient.post(process.env.NEXT_PUBLIC_PERSONS_ENDPOINT, payload);
-      } else if (type === "users") {
-        const payload = {
-          full_name: mapped.full_name,
-          email: mapped.email,
-          role_id: Number(mapped.role_id),
-          property_id: activeIp?.id,
-          is_active: mapped.is_active,
-        };
-        result = await apiClient.post(process.env.NEXT_PUBLIC_USERS_ENDPOINT, payload);
-      }
+    formData.append("type", uploadType);
 
-      if (result.success) {
-        successCount++;
-        setImportLogs((prev) => [
-          ...prev.slice(0, -1),
-          `${logPrefix}✅ Success`,
-        ]);
-      } else {
-        failCount++;
-        setImportLogs((prev) => [
-          ...prev.slice(0, -1),
-          `${logPrefix}❌ Failed - ${result.error || "Unknown API Error"}`,
-        ]);
-      }
-
-      const percentage = Math.round(((i + 1) / validRows.length) * 100);
-      setProgress(percentage);
+    if (activeIp?.id) {
+      formData.append("property_id", String(activeIp.id));
+    }
+    if (editionId) {
+      formData.append("edition_id", String(editionId));
     }
 
-    setImporting(false);
+    setProgress(30);
+    setImportLogs((prev) => [...prev, `Uploading file to bulk API with type '${uploadType}'...`]);
 
-    if (successCount > 0) {
-      toast.success(`Successfully imported ${successCount} record(s)!`);
+    const endpoint = process.env.NEXT_PUBLIC_UPLOAD_BULK_ENDPOINT || "/upload/bulk";
+    const result = await apiClient.post(endpoint, formData);
+
+    setProgress(100);
+
+    if (result.success) {
+      setImportLogs((prev) => [...prev, "✅ Bulk import completed successfully!"]);
+      toast.success("Successfully imported records!");
       if (onSuccess) onSuccess();
-    }
-    if (failCount > 0) {
-      toast.error(`Failed to import ${failCount} record(s). Check logs.`);
-    }
 
-    if (failCount === 0) {
-      // Auto close on full success after a short delay
       setTimeout(() => {
         resetState();
         if (onClose) onClose();
-      }, 1000);
+      }, 1500);
+    } else {
+      const errorMsg = result.error ? (typeof result.error === "string" ? result.error : JSON.stringify(result.error)) : "Upload failed";
+      setImportLogs((prev) => [...prev, `❌ Bulk import failed: ${errorMsg}`]);
+      toast.error(`Import failed: ${errorMsg}`);
+      setImporting(false);
     }
   };
 
