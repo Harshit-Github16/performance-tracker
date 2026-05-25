@@ -10,13 +10,10 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { ServerPaginatedTable } from "@/components/ServerPaginatedTable";
 import apiClient from "@/lib/apiClient";
+import secureStorage from "@/lib/secureStorage";
 import { uploadImageToGCP } from "@/lib/uploadToGCP";
 
 const TABS = ["Matches", "Teams", "Person", "Sponsorships", "Metrics", "Stats", "Requests", "Edit Details"];
-
-// Matches loaded from API now
-
-// Teams loaded from API now
 
 const ROLE_OPTIONS = ["PLAYER", "OFFICIAL", "COACH", "MANAGER"];
 
@@ -50,7 +47,6 @@ export default function EditionDetailPage() {
     const [teams, setTeams] = useState([]);
     const [teamsLoading, setTeamsLoading] = useState(false);
 
-    // Permission checks - will be set after component mounts
     const [canAddMatch, setCanAddMatch] = useState(false);
     const [canEditMatch, setCanEditMatch] = useState(false);
     const [canDeleteMatch, setCanDeleteMatch] = useState(false);
@@ -64,17 +60,15 @@ export default function EditionDetailPage() {
     const [canEditDataEntry, setCanEditDataEntry] = useState(false);
     const [canDeleteDataEntry, setCanDeleteDataEntry] = useState(false);
 
-    // Permission check function
     const hasPermission = (permission) => {
         if (typeof window === "undefined") return false;
         if (user?.role === "super_admin") return true;
-        const isIpOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+        const isIpOwner = secureStorage.getItem("is_ip_owner") || false;
         if (isIpOwner) return true;
-        const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+        const perms = secureStorage.getItem("user_permissions") || [];
         return perms.includes(permission);
     };
 
-    // Set permissions after mount
     useEffect(() => {
         if (typeof window !== "undefined") {
             setCanAddMatch(hasPermission("matches:add"));
@@ -110,7 +104,6 @@ export default function EditionDetailPage() {
     const contentRef = useRef(null);
     const modalRef = useRef(null);
 
-    // Players state
     const [players, setPlayers] = useState([]);
     const [playersLoading, setPlayersLoading] = useState(false);
     const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
@@ -120,7 +113,6 @@ export default function EditionDetailPage() {
     const playerModalRef = useRef(null);
     const playerImageRef = useRef(null);
 
-    // Sponsorships state
     const [sponsorships, setSponsorships] = useState([]);
     const [sponsorshipsLoading, setSponsorshipsLoading] = useState(false);
     const [isSponsorModalOpen, setIsSponsorModalOpen] = useState(false);
@@ -129,7 +121,6 @@ export default function EditionDetailPage() {
     const [sponsorForm, setSponsorForm] = useState({ brand_name: "", sponsor_type: "TITLE", contract_value: "" });
     const sponsorModalRef = useRef(null);
 
-    // Metrics state
     const [metricTree, setMetricTree] = useState(null);
     const [metricsFormData, setMetricsFormData] = useState({});
     const [isSavingMetrics, setIsSavingMetrics] = useState(false);
@@ -139,9 +130,8 @@ export default function EditionDetailPage() {
     const [selectedMatchId, setSelectedMatchId] = useState("");
     const [selectedPersonId, setSelectedPersonId] = useState("");
     const [activeMetricCategory, setActiveMetricCategory] = useState(0);
-    const [metricRowData, setMetricRowData] = useState({}); // { definitionId: { match_id, person_id, value } }
+    const [metricRowData, setMetricRowData] = useState({});
 
-    // Stats state
     const [metricValues, setMetricValues] = useState([]);
     const [statsLoading, setStatsLoading] = useState(false);
     const [statsPage, setStatsPage] = useState(1);
@@ -159,7 +149,6 @@ export default function EditionDetailPage() {
     const [deletingMetricValueId, setDeletingMetricValueId] = useState(null);
     const deleteModalRef = useRef(null);
 
-    // Requests state
     const [userRequests, setUserRequests] = useState([]);
     const [requestsLoading, setRequestsLoading] = useState(false);
     const [requestsStatusFilter, setRequestsStatusFilter] = useState("approved,rejected");
@@ -170,12 +159,10 @@ export default function EditionDetailPage() {
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
         gsap.fromTo(contentRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.1 });
 
-        // Load user permissions
-        const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+        const perms = secureStorage.getItem("user_permissions") || [];
         setUserPermissions(perms);
 
-        // Check if user is IP Owner
-        const ipOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+        const ipOwner = secureStorage.getItem("is_ip_owner") || false;
         setIsIpOwner(ipOwner);
 
         fetchEdition();
@@ -186,14 +173,12 @@ export default function EditionDetailPage() {
         fetchMetricTree();
     }, [id]);
 
-    // Fetch metric values when Stats tab is active
     useEffect(() => {
         if (activeTab === "Stats") {
             fetchMetricValues();
         }
     }, [activeTab, statsPage, statsFilters]);
 
-    // Fetch user requests when Requests tab is active
     useEffect(() => {
         if (activeTab === "Requests") {
             fetchUserRequests();
@@ -201,7 +186,7 @@ export default function EditionDetailPage() {
     }, [activeTab, requestsStatusFilter]);
 
     const fetchEdition = async () => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.get(
             `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}/${id}?property_id=${activeIp?.id}`
         );
@@ -209,7 +194,7 @@ export default function EditionDetailPage() {
     };
 
     const fetchMatches = async () => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.get(
             `${process.env.NEXT_PUBLIC_MATCHES_ENDPOINT}?property_id=${activeIp?.id}&edition_id=${id}`
         );
@@ -221,7 +206,7 @@ export default function EditionDetailPage() {
 
     const fetchTeams = async () => {
         setTeamsLoading(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.get(
             `${process.env.NEXT_PUBLIC_TEAMS_ENDPOINT}?property_id=${activeIp?.id}`
         );
@@ -233,7 +218,7 @@ export default function EditionDetailPage() {
     };
 
     const fetchPlayers = async () => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         if (!activeIp) return;
         setPlayersLoading(true);
         const result = await apiClient.get(
@@ -265,11 +250,10 @@ export default function EditionDetailPage() {
     };
 
     const fetchMetricTree = async () => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         if (!activeIp) return;
 
-        // Try to load from localStorage first
-        const metricTrees = localStorage.getItem("metric_trees");
+        const metricTrees = secureStorage.getItem("metric_trees");
         if (metricTrees) {
             const trees = JSON.parse(metricTrees);
             const tree = trees[activeIp.id];
@@ -281,7 +265,6 @@ export default function EditionDetailPage() {
             }
         }
 
-        // Fetch from API if not in localStorage
         const sportId = activeIp.sport_id || activeIp.sport?.id;
         if (!sportId) return;
 
@@ -324,18 +307,9 @@ export default function EditionDetailPage() {
         }
     };
 
-    // const hasPermission = (permission) => {
-    //     // Super admin has all permissions
-    //     if (user?.role === "super_admin") return true;
-    //     // IP Owner has all permissions
-    //     if (isIpOwner) return true;
-    //     return userPermissions.includes(permission);
-    // };
-
     const canEditMetricField = () => {
-        // Super admin can edit everything
         if (user?.role === "super_admin") return true;
-        // IP Owner can edit everything
+
         if (isIpOwner) return true;
         return hasPermission("data_entry:add") || hasPermission("data_entry:edit");
     };
@@ -382,7 +356,7 @@ export default function EditionDetailPage() {
             return;
         }
 
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const currentDate = new Date().toISOString().split('T')[0];
         const payload = {
             metric_definition_id: definitionId,
@@ -399,7 +373,6 @@ export default function EditionDetailPage() {
         );
 
         if (result.success) {
-            // Show different message based on user role
             const isSuperAdmin = user?.role === "super_admin";
             const message = isSuperAdmin
                 ? "Changes applied"
@@ -408,7 +381,7 @@ export default function EditionDetailPage() {
             toast.success(message, {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
             });
-            // Clear the row data
+
             setMetricRowData(prev => {
                 const newData = { ...prev };
                 delete newData[definitionId];
@@ -434,7 +407,6 @@ export default function EditionDetailPage() {
         const errors = {};
         let hasError = false;
 
-        // Validate match and player selection
         if (!selectedMatchId) {
             toast.error("Please select a match");
             return;
@@ -445,7 +417,6 @@ export default function EditionDetailPage() {
             return;
         }
 
-        // Validate required fields
         if (metricTree && Array.isArray(metricTree)) {
             metricTree.forEach(category => {
                 if (Array.isArray(category.metric_definitions)) {
@@ -467,10 +438,9 @@ export default function EditionDetailPage() {
 
         setIsSavingMetrics(true);
 
-        // Submit each metric value to the API
         const promises = [];
-        const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const currentDate = new Date().toISOString().split('T')[0];
+        const activeIp = secureStorage.getItem("active_ip");
 
         if (metricTree && Array.isArray(metricTree)) {
             metricTree.forEach(category => {
@@ -478,7 +448,6 @@ export default function EditionDetailPage() {
                     category.metric_definitions.forEach(def => {
                         const value = metricsFormData[def.key_name];
 
-                        // Only submit if value is not empty
                         if (value !== "" && value !== null && value !== undefined) {
                             const payload = {
                                 metric_definition_id: def.id,
@@ -506,7 +475,6 @@ export default function EditionDetailPage() {
             const allSuccess = results.every(result => result.success);
 
             if (allSuccess) {
-                // Show different message based on user role
                 const isSuperAdmin = user?.role === "super_admin";
                 const message = isSuperAdmin
                     ? "Changes applied"
@@ -515,7 +483,7 @@ export default function EditionDetailPage() {
                 toast.success(message, {
                     style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
                 });
-                // Reset form
+
                 setMetricsFormData({});
                 setSelectedMatchId("");
                 setSelectedPersonId("");
@@ -531,10 +499,9 @@ export default function EditionDetailPage() {
         setIsSavingMetrics(false);
     };
 
-    // Stats functions
     const fetchMetricValues = async () => {
         setStatsLoading(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const params = new URLSearchParams({
             page: statsPage,
             limit: 10,
@@ -564,7 +531,6 @@ export default function EditionDetailPage() {
         setStatsLoading(false);
     };
 
-    // Requests functions
     const fetchUserRequests = async () => {
         setRequestsLoading(true);
         const result = await apiClient.get(
@@ -627,14 +593,13 @@ export default function EditionDetailPage() {
 
     const handleUpdateMetricValue = async (e) => {
         e.preventDefault();
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.put(
             `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${editingMetricValueId}?property_id=${activeIp?.id}`,
             { value_text: editMetricValueForm.value_text }
         );
 
         if (result.success) {
-            // Show different message based on user role
             const isSuperAdmin = user?.role === "super_admin";
             const message = isSuperAdmin
                 ? "Changes done"
@@ -651,13 +616,12 @@ export default function EditionDetailPage() {
     };
 
     const handleDeleteMetricValue = async (metricValueId) => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.delete(
             `${process.env.NEXT_PUBLIC_METRIC_VALUES_ENDPOINT}/${metricValueId}?property_id=${activeIp?.id}`
         );
 
         if (result.success) {
-            // Show different message based on user role
             const isSuperAdmin = user?.role === "super_admin";
             const message = isSuperAdmin
                 ? "Changes done"
@@ -794,18 +758,16 @@ export default function EditionDetailPage() {
             fileType: file.type
         });
 
-        // Show preview immediately
         const preview = URL.createObjectURL(file);
         setPlayerForm(prev => ({ ...prev, image: file, imagePreview: preview }));
 
-        // Upload to GCP
         toast.loading("Uploading image to GCP...", { id: "player-image-upload" });
         const uploadResult = await uploadImageToGCP(file, "players");
 
         if (uploadResult.success) {
             console.log("✅ Player image uploaded! GCP URL:", uploadResult.url);
             toast.success("Image uploaded successfully!", { id: "player-image-upload" });
-            // Update with GCP URL
+
             setPlayerForm(prev => ({ ...prev, imagePreview: uploadResult.url }));
         } else {
             console.error("❌ Player image upload failed:", uploadResult.error);
@@ -817,7 +779,7 @@ export default function EditionDetailPage() {
         e.preventDefault();
         setIsSavingPlayer(true);
         console.log("playerFormplayerFormplayerForm", playerForm)
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const payload = {
             property_id: activeIp?.id,
             full_name: playerForm.full_name,
@@ -844,7 +806,7 @@ export default function EditionDetailPage() {
     };
 
     const handleDeletePlayer = async (playerId, playerName) => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.delete(
             `${process.env.NEXT_PUBLIC_PERSONS_ENDPOINT}/${playerId}`,
             { property_id: activeIp?.id }
@@ -884,7 +846,7 @@ export default function EditionDetailPage() {
     const handleSaveTeam = async (e) => {
         e.preventDefault();
         setIsSavingTeam(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const payload = {
             property_id: activeIp?.id,
             name: teamForm.name,
@@ -906,8 +868,6 @@ export default function EditionDetailPage() {
         setIsSavingTeam(false);
     };
 
-
-
     const handleTeamLogoChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -918,7 +878,6 @@ export default function EditionDetailPage() {
             fileType: file.type
         });
 
-        // Validate file type
         const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
         if (!validTypes.includes(file.type)) {
             console.error("❌ Invalid file type:", file.type);
@@ -926,7 +885,6 @@ export default function EditionDetailPage() {
             return;
         }
 
-        // Validate file size (max 5MB)
         const maxSize = 5 * 1024 * 1024;
         if (file.size > maxSize) {
             console.error("❌ File too large:", `${(file.size / 1024 / 1024).toFixed(2)} MB`);
@@ -934,12 +892,10 @@ export default function EditionDetailPage() {
             return;
         }
 
-        // Show preview
         const preview = URL.createObjectURL(file);
         setTeamForm(prev => ({ ...prev, logo: file, logoPreview: preview }));
         console.log("✅ Preview created:", preview);
 
-        // Upload to GCP
         console.log("🚀 Starting GCP upload...");
         toast.loading("Uploading logo to GCP...", { id: "team-logo-upload" });
 
@@ -1011,7 +967,7 @@ export default function EditionDetailPage() {
     const handleSaveMatch = async (e) => {
         e.preventDefault();
         setIsSaving(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const payload = {
             property_id: activeIp?.id,
             edition_id: Number(id),
@@ -1040,7 +996,7 @@ export default function EditionDetailPage() {
     };
 
     const handleDeleteMatch = async (matchId) => {
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.delete(
             `${process.env.NEXT_PUBLIC_MATCHES_ENDPOINT}/${matchId}`,
             { property_id: activeIp?.id }
@@ -1056,11 +1012,9 @@ export default function EditionDetailPage() {
     const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
     const fmtTime = (d) => d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
 
-    // Calculate match status based on timestamps
     const getMatchStatus = (match) => {
         const now = new Date();
 
-        // If match has ended (actual_end_time exists and is in the past)
         if (match.actual_end_time) {
             const endTime = new Date(match.actual_end_time);
             if (endTime <= now) {
@@ -1068,7 +1022,6 @@ export default function EditionDetailPage() {
             }
         }
 
-        // If match has started but not ended (actual_start_time exists but no actual_end_time)
         if (match.actual_start_time && !match.actual_end_time) {
             const startTime = new Date(match.actual_start_time);
             if (startTime <= now) {
@@ -1076,7 +1029,6 @@ export default function EditionDetailPage() {
             }
         }
 
-        // If scheduled_at is in the future
         if (match.scheduled_at) {
             const scheduledTime = new Date(match.scheduled_at);
             if (scheduledTime > now) {
@@ -1084,13 +1036,12 @@ export default function EditionDetailPage() {
             }
         }
 
-        // Default to upcoming
         return "upcoming";
     };
 
     return (
         <div ref={pageRef} className="space-y-6 opacity-0">
-            {/* Header + Tabs */}
+            {}
             <div ref={headerRef} className="px-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <button onClick={() => router.push("/editions")} className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-gray-950 transition-colors mb-3">
@@ -1114,10 +1065,10 @@ export default function EditionDetailPage() {
                 </div>
             </div>
 
-            {/* Tab Content */}
+            {}
             <div ref={contentRef} className="px-4">
 
-                {/* MATCHES */}
+                {}
                 {activeTab === "Matches" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
@@ -1148,17 +1099,14 @@ export default function EditionDetailPage() {
                                     <p className="text-xs text-gray-300 mt-1">Click &apos;Add Match&apos; to schedule one</p>
                                 </div>
                             ) : matches.map((match) => {
-                                // Always look up teams from the teams array to get the latest logo_url
                                 const team1 = teams.find(t => t.id === match.team1_id);
                                 const team2 = teams.find(t => t.id === match.team2_id);
 
-                                // Get team details - prioritize teams array data
                                 const t1Name = team1?.name || match.team1?.name || `Team ${match.team1_id}`;
                                 const t2Name = team2?.name || match.team2?.name || `Team ${match.team2_id}`;
                                 const t1Short = team1?.short_name || match.team1?.short_name || String(t1Name).slice(0, 2).toUpperCase();
                                 const t2Short = team2?.short_name || match.team2?.short_name || String(t2Name).slice(0, 2).toUpperCase();
 
-                                // Get logos - prioritize teams array
                                 const t1Logo = team1?.logo_url || match.team1?.logo_url || null;
                                 const t2Logo = team2?.logo_url || match.team2?.logo_url || null;
 
@@ -1176,12 +1124,11 @@ export default function EditionDetailPage() {
                                     t2Logo
                                 });
 
-                                // Calculate actual status based on timestamps
                                 const matchStatus = getMatchStatus(match);
 
                                 return (
                                     <div key={match.id} className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-200">
-                                        {/* Header with gradient */}
+                                        {}
                                         <div className="px-5 pt-5 pb-4" style={{ background: `linear-gradient(135deg, ${theme.primary_color}12 0%, ${theme.secondary_color}12 100%)` }}>
                                             <div className="flex items-center justify-between mb-4">
                                                 <span className="text-xs font-bold text-gray-500 uppercase tracking-[0.15em]">{match.round}</span>
@@ -1223,7 +1170,7 @@ export default function EditionDetailPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                        {/* Footer */}
+                                        {}
                                         <div className="px-5 py-4 border-t border-gray-50 space-y-2.5">
                                             {match.venue && (
                                                 <div className="flex items-center gap-2.5 text-gray-500">
@@ -1255,7 +1202,7 @@ export default function EditionDetailPage() {
                     </div>
                 )}
 
-                {/* TEAMS */}
+                {}
                 {activeTab === "Teams" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
@@ -1334,7 +1281,7 @@ export default function EditionDetailPage() {
                     </div>
                 )}
 
-                {/* PLAYERS */}
+                {}
                 {activeTab === "Person" && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
@@ -1420,7 +1367,7 @@ export default function EditionDetailPage() {
                 )
                 }
 
-                {/* SPONSORSHIPS */}
+                {}
                 {
                     activeTab === "Sponsorships" && (
                         <div className="space-y-4">
@@ -1487,7 +1434,7 @@ export default function EditionDetailPage() {
                                         itemsPerPage={10}
                                     />
 
-                                    {/* Summary Footer */}
+                                    {}
                                     {sponsorships.length > 0 && (
                                         <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] px-6 py-3 flex items-center justify-between">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Contract Value</span>
@@ -1502,7 +1449,7 @@ export default function EditionDetailPage() {
                     )
                 }
 
-                {/* METRICS */}
+                {}
                 {
                     activeTab === "Metrics" && (
                         <div className="space-y-6">
@@ -1526,7 +1473,7 @@ export default function EditionDetailPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    {/* Category Tabs */}
+                                    {}
                                     <div className="flex items-center gap-2 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm overflow-x-auto">
                                         {metricTree.map((category, idx) => (
                                             <button
@@ -1541,7 +1488,7 @@ export default function EditionDetailPage() {
                                         ))}
                                     </div>
 
-                                    {/* Metric Rows */}
+                                    {}
                                     <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm overflow-hidden">
                                         <div className="overflow-x-auto">
                                             <table className="w-full">
@@ -1641,18 +1588,17 @@ export default function EditionDetailPage() {
                     )
                 }
 
-                {/* EDIT DETAILS */}
+                {}
                 {
                     activeTab === "Edit Details" && edition && (
                         <EditDetailsForm edition={edition} id={id} theme={theme} onSaved={fetchEdition} />
                     )
                 }
 
-                {/* STATS */}
+                {}
                 {
                     activeTab === "Stats" && (
                         <div className="space-y-4">
-
 
                             {statsLoading ? (
                                 <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">
@@ -1774,7 +1720,7 @@ export default function EditionDetailPage() {
                     )
                 }
 
-                {/* REQUESTS */}
+                {}
                 {
                     activeTab === "Requests" && (
                         <div className="space-y-4">
@@ -1928,7 +1874,7 @@ export default function EditionDetailPage() {
                 }
             </div >
 
-            {/* Edit Metric Value Modal */}
+            {}
             {
                 mounted && isEditingMetricValue && typeof document !== 'undefined' && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
@@ -1959,7 +1905,7 @@ export default function EditionDetailPage() {
                 )
             }
 
-            {/* Delete Confirmation Modal */}
+            {}
             {
                 mounted && isDeleteModalOpen && typeof document !== 'undefined' && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
@@ -2053,7 +1999,7 @@ export default function EditionDetailPage() {
                 )
             }
 
-            {/* Player Modal */}
+            {}
             {
                 mounted && isPlayerModalOpen && typeof window !== "undefined" && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
@@ -2070,7 +2016,7 @@ export default function EditionDetailPage() {
                             <form onSubmit={handleSavePlayer} className="p-6 space-y-4">
                                 <Input label="Full Name" placeholder="e.g. Virat Kohli" required value={playerForm.full_name} onChange={(e) => setPlayerForm({ ...playerForm, full_name: e.target.value })} />
 
-                                {/* Player Image Uploader */}
+                                {}
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Player Image</label>
                                     <div
@@ -2135,7 +2081,7 @@ export default function EditionDetailPage() {
                 )
             }
 
-            {/* Sponsor Modal */}
+            {}
             {
                 mounted && isSponsorModalOpen && typeof window !== "undefined" && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
@@ -2172,7 +2118,7 @@ export default function EditionDetailPage() {
                 )
             }
 
-            {/* Team Modal */}
+            {}
             {
                 mounted && isTeamModalOpen && typeof window !== "undefined" && document?.body && createPortal(
                     <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
@@ -2190,7 +2136,7 @@ export default function EditionDetailPage() {
                                 <Input label="Team Name" placeholder="e.g. Mumbai Indians" required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
                                 <Input label="Short Name" placeholder="e.g. MI" required value={teamForm.short_name} onChange={(e) => setTeamForm({ ...teamForm, short_name: e.target.value })} />
 
-                                {/* Team Logo Uploader */}
+                                {}
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Team Logo</label>
                                     <div
@@ -2232,7 +2178,6 @@ export default function EditionDetailPage() {
     );
 }
 
-// Sponsor Type Badge
 function SponsorTypeBadge({ type, theme }) {
     const styles = {
         "TITLE": { bg: "bg-amber-50", text: "text-amber-600", dot: "bg-amber-400" },
@@ -2250,7 +2195,6 @@ function SponsorTypeBadge({ type, theme }) {
     );
 }
 
-// Edit Details Form Component
 function EditDetailsForm({ edition, id, theme, onSaved }) {
     const fileRef = useRef(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -2273,18 +2217,16 @@ function EditDetailsForm({ edition, id, theme, onSaved }) {
             fileType: file.type
         });
 
-        // Show preview immediately
         const preview = URL.createObjectURL(file);
         setFormData(prev => ({ ...prev, logo: file, logoPreview: preview }));
 
-        // Upload to GCP
         toast.loading("Uploading logo to GCP...", { id: "edition-logo-upload" });
         const uploadResult = await uploadImageToGCP(file, "editions");
 
         if (uploadResult.success) {
             console.log("✅ Edition logo uploaded! GCP URL:", uploadResult.url);
             toast.success("Logo uploaded successfully!", { id: "edition-logo-upload" });
-            // Update with GCP URL
+
             setFormData(prev => ({ ...prev, logoPreview: uploadResult.url }));
         } else {
             console.error("❌ Edition logo upload failed:", uploadResult.error);
@@ -2295,7 +2237,7 @@ function EditDetailsForm({ edition, id, theme, onSaved }) {
     const handleSave = async (e) => {
         e.preventDefault();
         setIsSaving(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const payload = {
             id,
             property_id: activeIp?.id,

@@ -48,16 +48,13 @@ export default function UsersPage() {
     }, []);
 
     useEffect(() => {
-        // Wait for auth to finish loading, then fetch users if activeIp is available
         if (!loading && activeIp?.id) {
-            // Clear any stale user data when activeIp changes
             setUsers([]);
             fetchUsers();
         } else if (!loading && !activeIp?.id) {
-            // Auth loaded but no activeIp - stop loading state
             setTableLoading(false);
         }
-    }, [activeIp?.id, loading]); // Depend on both activeIp.id and loading state
+    }, [activeIp?.id, loading]);
 
     const fetchUsers = async () => {
         setTableLoading(true);
@@ -103,7 +100,7 @@ export default function UsersPage() {
                     ? result.data
                     : [];
             setRoles(arr);
-            // Only set default role if in add mode (no editingUserId)
+
             if (arr.length > 0 && !editingUserId) {
                 setFormData(prev => ({ ...prev, role_id: arr[0].id }));
             }
@@ -113,7 +110,6 @@ export default function UsersPage() {
 
     const openModal = async (user = null) => {
         if (user) {
-            // Edit mode - first fetch roles and prepare data, then open modal
             setEditingUserId(user.access_id);
             await fetchRoles();
             setFormData({
@@ -123,13 +119,11 @@ export default function UsersPage() {
                 is_active: user.is_active
             });
         } else {
-            // Add mode - fetch roles and reset form
             setEditingUserId(null);
             setFormData({ full_name: "", email: "", role_id: "", is_active: true });
             await fetchRoles();
         }
 
-        // Open modal only after data is ready
         setIsModalOpen(true);
         requestAnimationFrame(() => {
             if (modalRef.current) {

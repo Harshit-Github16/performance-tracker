@@ -1,18 +1,5 @@
 "use client";
 
-/**
- * Global reusable Card component
- * Props:
- * - image: background image url
- * - gradient: fallback gradient colors [color1, color2]
- * - badge: { label, color } top-right badge
- * - title: main heading
- * - subtitle: secondary text
- * - meta: array of { icon, text } bottom meta items
- * - onClick: click handler
- * - actions: array of { icon, onClick, title, danger }
- * - height: card height (default 200)
- */
 export default function Card({
     image, gradient = ["#1e293b", "#334155"],
     badge, title, subtitle, meta = [],
@@ -25,17 +12,17 @@ export default function Card({
             style={{ height }}
             onClick={onClick}
         >
-            {/* Background */}
+            {}
             {image ? (
                 <img src={image} alt={title} className="absolute inset-0 w-full h-full object-cover" />
             ) : (
                 <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${gradient[0]}cc 0%, ${gradient[1]}99 100%)` }} />
             )}
 
-            {/* Dark overlay */}
+            {}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-            {/* Badge top-right */}
+            {}
             {badge && (
                 <div className="absolute top-3 right-3 z-10">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${badge.color || "bg-white/20 text-white"}`}>
@@ -50,7 +37,7 @@ export default function Card({
                 </div>
             )}
 
-            {/* Actions top-left on hover */}
+            {}
             {actions.length > 0 && (
                 <div className="absolute top-3 left-3 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     {actions.map((action, i) => (
@@ -66,7 +53,7 @@ export default function Card({
                 </div>
             )}
 
-            {/* Content bottom */}
+            {}
             <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
                 {children ? children : (
                     <>

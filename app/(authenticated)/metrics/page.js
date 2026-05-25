@@ -61,7 +61,6 @@ export default function MetricsPage() {
                     : [];
             setCategories(arr);
 
-            // Calculate total pages from total and limit
             const totalRecords = data?.total || 0;
             const limitPerPage = data?.limit || 10;
             const calculatedPages = Math.ceil(totalRecords / limitPerPage);
@@ -212,7 +211,7 @@ export default function MetricsPage() {
 
     return (
         <div ref={pageRef} className="space-y-6 opacity-0">
-            {/* Header */}
+            {}
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
                     <div className="flex items-center space-x-2 mb-1">
@@ -234,7 +233,7 @@ export default function MetricsPage() {
                 </Button>
             </div>
 
-            {/* Table */}
+            {}
             <div ref={tableRef} className="px-4">
                 {tableLoading ? (
                     <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-12 flex items-center justify-center">
@@ -261,7 +260,7 @@ export default function MetricsPage() {
                 )}
             </div>
 
-            {/* Modal */}
+            {}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">

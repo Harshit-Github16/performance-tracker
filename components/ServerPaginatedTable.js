@@ -3,10 +3,6 @@
 import React from "react";
 import { useTheme } from "./ThemeContext";
 
-/**
- * Server-side Paginated Table Component
- * Use this when API handles pagination (returns page, total_pages, etc.)
- */
 export const ServerPaginatedTable = ({
     columns,
     data,
@@ -23,7 +19,7 @@ export const ServerPaginatedTable = ({
 
     return (
         <div className={`w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] overflow-hidden ${className}`}>
-            {/* Search Bar Header */}
+            {}
             <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between bg-white">
                 <div className="relative w-full max-w-sm group">
                     <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-gray-950 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -42,7 +38,7 @@ export const ServerPaginatedTable = ({
                 </div>
             </div>
 
-            {/* Table */}
+            {}
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
@@ -88,14 +84,14 @@ export const ServerPaginatedTable = ({
                 </table>
             </div>
 
-            {/* Pagination Footer - Inside table card */}
+            {}
             {totalPages > 1 && (
                 <div className="px-8 py-4 border-t border-gray-50 flex items-center justify-between bg-white text-sm">
                     <div className="flex items-center space-x-2">
                         <button
                             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
-                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center space-x-2 
+                            className="px-4 py-2 border border-gray-100 rounded-lg text-gray-400 flex items-center space-x-2
                             hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

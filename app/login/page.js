@@ -9,13 +9,14 @@ import gsap from "gsap";
 import { initialTheme } from "@/config/theme";
 import { Button, Input } from "@/components/UI";
 import ThreeBackground from "@/components/ThreeBackground";
+import secureStorage from "@/lib/secureStorage";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [availableIps, setAvailableIps] = useState([]);
-  const [step, setStep] = useState("login"); // 'login' | 'ip-selection' | 'forgot-password' | 'reset-password'
+  const [step, setStep] = useState("login");
   const [isLoading, setIsLoading] = useState(false);
   const [resetToken, setResetToken] = useState(null);
 
@@ -27,7 +28,6 @@ export default function LoginPage() {
   const formRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Check for reset token in URL on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -39,14 +39,12 @@ export default function LoginPage() {
     }
   }, []);
 
-  // Already logged in → restore theme & redirect (only if active_ip is already set)
   useEffect(() => {
     if (loading) return;
     if (user) {
-      const savedIp = localStorage.getItem("active_ip");
+      const savedIp = secureStorage.getItem("active_ip");
       if (savedIp) {
-        // Has active IP = fully logged in session, restore and redirect
-        const ip = JSON.parse(savedIp);
+        const ip = savedIp;
         if (ip?.primary_color) {
           updateTheme({
             primary_color: ip.primary_color,
@@ -56,23 +54,19 @@ export default function LoginPage() {
         }
         router.replace("/dashboard");
       } else if (user.role === "super_admin") {
-        // Super admin has no active_ip but is still valid
         router.replace("/dashboard");
       }
-      // Admin without active_ip = needs property selection, don't redirect
-    } else {
-      // Not logged in - show entrance animation
+} else {
       const tl = gsap.timeline();
       tl.fromTo(containerRef.current, { opacity: 0 }, { opacity: 1, duration: 1 })
         .fromTo(cardRef.current, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }, "-=0.5");
     }
   }, [user, loading]);
 
-  // Select an IP, apply its theme, save to localStorage, go to dashboard
   const selectIPAndRedirect = (ip) => {
     if (ip) {
-      localStorage.setItem("active_ip", JSON.stringify(ip));
-      // Update AuthContext so all components get the new activeIp
+      secureStorage.setItem("active_ip", ip);
+
       setActiveIp(ip);
       updateTheme({
         primary_color: ip.primary_color || initialTheme.primary_color,
@@ -80,7 +74,7 @@ export default function LoginPage() {
         tournamentName: ip.name,
       });
     } else {
-      localStorage.removeItem("active_ip");
+      secureStorage.removeItem("active_ip");
       setActiveIp(null);
     }
     gsap.to(cardRef.current, {
@@ -112,7 +106,6 @@ export default function LoginPage() {
       return;
     }
 
-    // Admin → fetch assigned properties
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_MY_PROPERTIES_ENDPOINT}`,
@@ -123,24 +116,20 @@ export default function LoginPage() {
       const items = Array.isArray(data.data) ? data.data : [];
       const ips = items.map((item) => item.property);
 
-      // Check if user is IP Owner (role_id: 2) for any property
       const isIpOwner = items.some(item => item.role_id === 2);
-      localStorage.setItem("is_ip_owner", JSON.stringify(isIpOwner));
+      secureStorage.setItem("is_ip_owner", isIpOwner);
 
-      // Store user role name from first property (assuming same role for all properties)
       const userRole = items[0]?.role?.name || items[0]?.role || "IP Admin";
-      localStorage.setItem("user_role_name", userRole);
+      secureStorage.setItem("user_role_name", userRole);
 
-      // permissions is a flat array of code strings: ["users:add", "editions:view", ...]
       const permCodes = new Set();
       items.forEach(item => {
         if (Array.isArray(item.permissions)) {
           item.permissions.forEach(code => permCodes.add(code));
         }
       });
-      localStorage.setItem("user_permissions", JSON.stringify([...permCodes]));
+      secureStorage.setItem("user_permissions", [...permCodes]);
 
-      // Fetch metric categories tree for each property using sport_id
       const metricTreePromises = ips.map(async (ip) => {
         const sportId = ip.sport_id || ip.sport?.id;
         if (!sportId) return null;
@@ -163,20 +152,17 @@ export default function LoginPage() {
       const metricTrees = await Promise.all(metricTreePromises);
       const validTrees = metricTrees.filter(Boolean);
 
-      // Store metric trees in localStorage for later use
       if (validTrees.length > 0) {
         const treesMap = {};
         validTrees.forEach(({ propertyId, sportId, tree }) => {
           treesMap[propertyId] = { sportId, tree };
         });
-        localStorage.setItem("metric_trees", JSON.stringify(treesMap));
+        secureStorage.setItem("metric_trees", treesMap);
       }
 
-      // Save ips into context & localStorage so navbar dropdown works
       updateUserIps(ips);
 
       if (ips.length === 0) {
-        // No properties assigned — show blocked page
         gsap.to(cardRef.current, {
           y: -40, opacity: 0, filter: "blur(20px)", duration: 0.8, ease: "power4.inOut",
           onComplete: () => router.push("/no-access"),
@@ -184,7 +170,6 @@ export default function LoginPage() {
       } else if (ips.length === 1) {
         selectIPAndRedirect(ips[0]);
       } else {
-        // Show property selection screen
         setAvailableIps(ips);
         gsap.to(formRef.current, {
           x: -20, opacity: 0, duration: 0.4,
@@ -205,7 +190,7 @@ export default function LoginPage() {
       <ThreeBackground />
 
       <div ref={cardRef} className="w-full max-w-md bg-white/70 backdrop-blur-xl rounded-2xl shadow-[0_40px_100px_rgba(0,0,0,0.04)] border border-white/50 p-8 md:p-10 relative z-10 overflow-hidden">
-        {/* Logo + Title */}
+        {}
         <div className="flex flex-col items-center mb-10">
           <div className="mb-6">
 
@@ -221,7 +206,7 @@ export default function LoginPage() {
         </div>
 
         <div ref={formRef}>
-          {/* Step 1 - Login form */}
+          {}
           {step === "login" && (
             <form onSubmit={handleLogin} className="space-y-6">
               <Input
@@ -233,7 +218,7 @@ export default function LoginPage() {
                 placeholder="admin@example.com"
                 required
               />
-              {/* Password with show/hide */}
+              {}
               <div className="flex flex-col space-y-2">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Password</label>
                 <div className="relative group">
@@ -288,7 +273,7 @@ export default function LoginPage() {
             </form>
           )}
 
-          {/* Step 2 - Property selection */}
+          {}
           {step === "ip-selection" && (
             <div className="space-y-6 animate-in fade-in duration-500">
               <div className="text-center">
@@ -314,7 +299,7 @@ export default function LoginPage() {
                         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.2em]">{ip.sport?.name || ip.code}</span>
                       </div>
                     </div>
-                    {/* Color swatches */}
+                    {}
                     <div className="flex items-center gap-2">
                       {ip.primary_color && (
                         <div className="h-4 w-4 rounded-full border border-gray-100" style={{ backgroundColor: ip.primary_color }} />
@@ -328,7 +313,7 @@ export default function LoginPage() {
               </div>
             </div>
           )}
-          {/* Step 3 - Forgot Password */}
+          {}
           {step === "forgot-password" && (
             <ForgotPasswordForm
               formRef={formRef}
@@ -345,13 +330,13 @@ export default function LoginPage() {
             />
           )}
 
-          {/* Step 4 - Reset Password (from email link) */}
+          {}
           {step === "reset-password" && (
             <ResetPasswordForm
               token={resetToken}
               onSuccess={() => {
                 setResetToken(null);
-                // Clear token from URL
+
                 window.history.replaceState({}, "", "/login");
                 gsap.to(formRef.current, {
                   x: -20, opacity: 0, duration: 0.3, ease: "power2.in",
@@ -515,7 +500,7 @@ function ResetPasswordForm({ token, onSuccess }) {
         <p className="text-xs text-gray-400">Enter your new password below.</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* New Password */}
+        {}
         <div className="flex flex-col space-y-2">
           <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">New Password</label>
           <div className="relative">
@@ -537,7 +522,7 @@ function ResetPasswordForm({ token, onSuccess }) {
           </div>
         </div>
 
-        {/* Confirm Password */}
+        {}
         <div className="flex flex-col space-y-2">
           <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Confirm New Password</label>
           <div className="relative">
@@ -558,7 +543,7 @@ function ResetPasswordForm({ token, onSuccess }) {
           </div>
         </div>
 
-        {/* Match indicator */}
+        {}
         {confirmPassword && (
           <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${newPassword === confirmPassword ? "text-emerald-500" : "text-red-400"}`}>
             {newPassword === confirmPassword ? "✓ Passwords match" : "✗ Passwords do not match"}

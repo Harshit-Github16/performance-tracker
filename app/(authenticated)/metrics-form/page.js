@@ -7,6 +7,7 @@ import { Button, Input } from "@/components/UI";
 import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import secureStorage from "@/lib/secureStorage";
 
 export default function MetricsFormPage() {
     const { theme } = useTheme();
@@ -27,11 +28,9 @@ export default function MetricsFormPage() {
     const formRef = useRef(null);
 
     useEffect(() => {
-        // Super admin should not access metrics-form page UNLESS they entered as manager
-        const enteredAsManager = localStorage.getItem("entered_as_manager") === "true";
+        const enteredAsManager = secureStorage.getItem("entered_as_manager") === "true";
 
         if (user && user.role === "super_admin" && !enteredAsManager) {
-            // Super admin in normal mode - redirect to category management
             router.push("/metrics");
             return;
         }
@@ -42,40 +41,33 @@ export default function MetricsFormPage() {
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
         gsap.fromTo(formRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.1 });
 
-        // Load user permissions first
-        const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+        const perms = secureStorage.getItem("user_permissions", []);
         setUserPermissions(perms);
 
-        // Check if user is IP Owner
-        const ipOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+        const ipOwner = secureStorage.getItem("is_ip_owner", false);
         setIsIpOwner(ipOwner);
 
-        // Load active IP and metric tree
-        const savedIp = localStorage.getItem("active_ip");
+        const savedIp = secureStorage.getItem("active_ip");
 
         if (savedIp) {
-            const ip = JSON.parse(savedIp);
+            const ip = savedIp;
             setActiveIp(ip);
 
-            // Load metric tree for this property
-            const metricTrees = localStorage.getItem("metric_trees");
+            const metricTrees = secureStorage.getItem("metric_trees");
 
             if (metricTrees) {
-                const trees = JSON.parse(metricTrees);
+                const trees = metricTrees;
                 const tree = trees[ip.id];
 
                 if (tree) {
-                    // Check if tree has a nested 'tree' property or if it's directly the array
                     const treeData = tree.tree || tree;
                     setMetricTree(treeData);
-                    // Initialize form data with empty values
+
                     initializeFormData(treeData);
                 } else {
-                    // Tree not found in localStorage, fetch from API
                     fetchMetricTree(ip);
                 }
             } else {
-                // No metric trees in localStorage, fetch from API
                 fetchMetricTree(ip);
             }
         }
@@ -89,7 +81,7 @@ export default function MetricsFormPage() {
         }
 
         try {
-            const token = localStorage.getItem("auth_token");
+            const token = secureStorage.getItem("auth_token");
             const response = await fetch(
                 `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_METRIC_CATEGORIES_ENDPOINT}/get-tree/${sportId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -142,31 +134,27 @@ export default function MetricsFormPage() {
     };
 
     const hasPermission = (permission) => {
-        // Super admin has all permissions
         if (user?.role === "super_admin") return true;
-        // IP Owner has all permissions
+
         if (isIpOwner) return true;
         return userPermissions.includes(permission);
     };
 
     const canEditField = (definition) => {
-        // Super admin can edit everything
         if (user?.role === "super_admin") return true;
-        // IP Owner can edit everything
+
         if (isIpOwner) return true;
-        // Check if user has data_entry:add or data_entry:edit permission
+
         return hasPermission("data_entry:add") || hasPermission("data_entry:edit");
     };
 
     const canViewPage = () => {
-        // TEMPORARY: Always return true for debugging
         return true;
 
-        // Super admin can view everything
         if (user?.role === "super_admin") return true;
-        // IP Owner can view everything
+
         if (isIpOwner) return true;
-        // Check if user has data_entry:view permission
+
         return hasPermission("data_entry:view");
     };
 
@@ -186,7 +174,6 @@ export default function MetricsFormPage() {
             [keyName]: processedValue
         }));
 
-        // Clear error for this field
         if (fieldErrors[keyName]) {
             setFieldErrors(prev => {
                 const newErrors = { ...prev };
@@ -199,7 +186,6 @@ export default function MetricsFormPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validate required fields and collect errors
         const errors = {};
         let hasError = false;
 
@@ -224,10 +210,8 @@ export default function MetricsFormPage() {
 
         setIsSaving(true);
 
-        // TODO: Replace with actual API endpoint
         console.log("Form Data to Submit:", formData);
 
-        // Simulate API call
         setTimeout(() => {
             toast.success("Metrics saved successfully!", {
                 style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' },
@@ -237,7 +221,6 @@ export default function MetricsFormPage() {
     };
 
     const renderField = (definition) => {
-
         const { key_name, label, data_type, is_required } = definition;
         const isDisabled = !canEditField(definition);
 
@@ -349,7 +332,6 @@ export default function MetricsFormPage() {
         );
     }
 
-    // Check if user has permission to view this page
     if (!canViewPage()) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -378,7 +360,7 @@ export default function MetricsFormPage() {
 
     return (
         <div ref={pageRef} className="space-y-6">
-            {/* Header */}
+            {}
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
                     <div className="flex items-center space-x-2 mb-1">
@@ -392,18 +374,17 @@ export default function MetricsFormPage() {
                 </div>
             </div>
 
-            {/* Form */}
+            {}
             <div ref={formRef} className="px-4">
                 <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-8 space-y-8">
                     {Array.isArray(metricTree) && metricTree.map((category, catIndex) => {
-                        // Skip categories without metric definitions
                         if (!Array.isArray(category.metric_definitions) || category.metric_definitions.length === 0) {
                             return null;
                         }
 
                         return (
                             <div key={catIndex} className="space-y-5">
-                                {/* Category Header */}
+                                {}
                                 <div className="pb-3 border-b border-gray-100">
                                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest flex items-center gap-2">
                                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary_color }} />
@@ -412,7 +393,7 @@ export default function MetricsFormPage() {
 
                                 </div>
 
-                                {/* Category Fields */}
+                                {}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 ml-4">
                                     {category.metric_definitions.map(definition => (
                                         renderField(definition)
@@ -422,7 +403,7 @@ export default function MetricsFormPage() {
                         );
                     })}
 
-                    {/* Submit Button */}
+                    {}
                     <div className="pt-4 flex justify-end">
                         <Button
                             type="submit"

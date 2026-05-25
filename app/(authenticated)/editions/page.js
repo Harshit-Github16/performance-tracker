@@ -12,6 +12,7 @@ import apiClient from "@/lib/apiClient";
 import { uploadImageToGCP } from "@/lib/uploadToGCP";
 import Card from "@/components/Card";
 import { hasPermission } from "@/lib/permissions";
+import secureStorage from "@/lib/secureStorage";
 
 const STATUS_OPTIONS = ["upcoming", "active", "completed", "cancelled"];
 
@@ -61,7 +62,7 @@ export default function EditionsPage() {
 
     const fetchEditions = async () => {
         setTableLoading(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const propertyId = activeIp?.id;
         const endpoint = propertyId
             ? `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}?property_id=${propertyId}`
@@ -115,18 +116,16 @@ export default function EditionsPage() {
             fileType: file.type
         });
 
-        // Show preview immediately
         const preview = URL.createObjectURL(file);
         setFormData(prev => ({ ...prev, logo: file, logoPreview: preview }));
 
-        // Upload to GCP
         toast.loading("Uploading logo to GCP...", { id: "edition-logo-upload" });
         const uploadResult = await uploadImageToGCP(file, "editions");
 
         if (uploadResult.success) {
             console.log("✅ Edition logo uploaded! GCP URL:", uploadResult.url);
             toast.success("Logo uploaded successfully!", { id: "edition-logo-upload" });
-            // Update with GCP URL
+
             setFormData(prev => ({ ...prev, logoPreview: uploadResult.url }));
         } else {
             console.error("❌ Edition logo upload failed:", uploadResult.error);
@@ -165,14 +164,12 @@ export default function EditionsPage() {
     const handleSave = async (e) => {
         e.preventDefault();
 
-        // Check if start_date and end_date are the same
         if (formData.start_date && formData.end_date && formData.start_date === formData.end_date) {
             toast.error("Start Date and End Date cannot be the same");
             setIsSaving(false);
             return;
         }
 
-        // Check if end_date is before start_date
         if (formData.start_date && formData.end_date && new Date(formData.end_date) < new Date(formData.start_date)) {
             toast.error("End Date must be after Start Date");
             setIsSaving(false);
@@ -184,7 +181,7 @@ export default function EditionsPage() {
             return;
         }
         setIsSaving(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         console.log("formDataformDataformDataformData", formData)
         const payload = {
             ...(editingId && { id: editingId }),
@@ -211,7 +208,7 @@ export default function EditionsPage() {
 
     const handleDelete = async (e, editionId, editionName) => {
         e.stopPropagation();
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const result = await apiClient.delete(
             `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}/${editionId}`,
             { property_id: activeIp?.id }
@@ -244,7 +241,7 @@ export default function EditionsPage() {
                 </div>
             ) : (
                 <>
-                    {/* Header */}
+                    {}
                     <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                         <div>
                             <div className="flex items-center space-x-2 mb-1">
@@ -264,7 +261,7 @@ export default function EditionsPage() {
                         </Button>
                     </div>
 
-                    {/* Cards Grid */}
+                    {}
                     <div ref={cardsRef} className="px-4">
                         {tableLoading ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -286,7 +283,7 @@ export default function EditionsPage() {
                                             style={{ height: 240 }}
                                             onClick={() => router.push(`/editions/${edition.id}`)}
                                         >
-                                            {/* Background - logo or gradient */}
+                                            {}
                                             {edition.logo ? (
                                                 <div className="absolute inset-0 w-full h-full">
                                                     <img
@@ -308,10 +305,10 @@ export default function EditionsPage() {
                                                 />
                                             )}
 
-                                            {/* Dark overlay */}
+                                            {}
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-                                            {/* Status badge */}
+                                            {}
                                             <div className="absolute top-3 right-3">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${st.bg} ${st.text}`}>
                                                     {edition.status === "active" && (
@@ -324,7 +321,7 @@ export default function EditionsPage() {
                                                 </span>
                                             </div>
 
-                                            {/* Edit + Delete icons on hover */}
+                                            {}
                                             {(canEdit || canDelete) && (
                                                 <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
                                                     {canEdit && (
@@ -352,7 +349,7 @@ export default function EditionsPage() {
                                                 </div>
                                             )}
 
-                                            {/* Content */}
+                                            {}
                                             <div className="absolute bottom-0 left-0 right-0 p-4">
                                                 <h3 className="text-white font-bold text-base tracking-tight leading-tight mb-2 line-clamp-1">{edition.name}</h3>
                                                 <div className="flex items-center gap-1.5 text-white/70 text-[11px] font-semibold">
@@ -369,7 +366,7 @@ export default function EditionsPage() {
                         )}
                     </div>
 
-                    {/* Modal */}
+                    {}
                     {mounted && isModalOpen && createPortal(
                         <div className="fixed inset-0 z-[9999] md:z-30 flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                             <div ref={modalRef} className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
@@ -386,7 +383,7 @@ export default function EditionsPage() {
                                 <form onSubmit={handleSave} className="p-8 space-y-5">
                                     <Input label="Edition Name" placeholder="e.g. Edition 1" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
 
-                                    {/* Logo Upload */}
+                                    {}
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Edition Logo</label>
                                         <div

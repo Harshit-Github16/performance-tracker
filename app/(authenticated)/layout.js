@@ -6,6 +6,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { initialTheme } from "@/config/theme";
+import secureStorage from "@/lib/secureStorage";
 
 export default function DashboardLayout({ children }) {
   const { theme, updateTheme } = useTheme();
@@ -30,9 +31,9 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const savedIp = localStorage.getItem("active_ip");
+    const savedIp = secureStorage.getItem("active_ip");
     if (savedIp && !activeIp) {
-      const ip = JSON.parse(savedIp);
+      const ip = savedIp;
       setActiveIp(ip);
       if (ip?.primary_color) {
         updateTheme({
@@ -42,54 +43,46 @@ export default function DashboardLayout({ children }) {
         });
       }
     }
-    setEnteredAsManager(localStorage.getItem("entered_as_manager") === "true");
-    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    setEnteredAsManager(secureStorage.getItem("entered_as_manager") === "true");
+    const perms = secureStorage.getItem("user_permissions") || [];
     setUserPermissions(perms);
 
-    // Check if metric trees exist for non-super-admin users
-    const metricTrees = localStorage.getItem("metric_trees");
+    const metricTrees = secureStorage.getItem("metric_trees");
     setHasMetricTrees(!!metricTrees);
 
-    // Check if user is IP Owner
-    const ipOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+    const ipOwner = secureStorage.getItem("is_ip_owner") || false;
     setIsIpOwner(ipOwner);
 
-    // Get user role name
-    const roleName = localStorage.getItem("user_role_name") || "";
+    const roleName = secureStorage.getItem("user_role_name") || "";
     setUserRoleName(roleName);
 
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    setEnteredAsManager(localStorage.getItem("entered_as_manager") === "true");
-    const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    setEnteredAsManager(secureStorage.getItem("entered_as_manager") === "true");
+    const perms = secureStorage.getItem("user_permissions") || [];
     setUserPermissions(perms);
 
-    // Check if metric trees exist for non-super-admin users
-    const metricTrees = localStorage.getItem("metric_trees");
+    const metricTrees = secureStorage.getItem("metric_trees");
     setHasMetricTrees(!!metricTrees);
 
-    // Check if user is IP Owner
-    const ipOwner = JSON.parse(localStorage.getItem("is_ip_owner") || "false");
+    const ipOwner = secureStorage.getItem("is_ip_owner") || false;
     setIsIpOwner(ipOwner);
 
-    // Get user role name
-    const roleName = localStorage.getItem("user_role_name") || "";
+    const roleName = secureStorage.getItem("user_role_name") || "";
     setUserRoleName(roleName);
 
-    // Close mobile menu on route change
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  // Auth guard
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace("/login"); return; }
-    // Non-super-admin with no assigned properties → block
+
     if (user.role !== "super_admin") {
       const ips = user.ips || [];
-      const activeIp = localStorage.getItem("active_ip");
+      const activeIp = secureStorage.getItem("active_ip");
       if (ips.length === 0 && !activeIp) {
         router.replace("/no-access");
       }
@@ -119,7 +112,7 @@ export default function DashboardLayout({ children }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            Authorization: `Bearer ${secureStorage.getItem("auth_token")}`,
           },
           body: JSON.stringify({
             current_password: passwordForm.current,
@@ -144,10 +137,10 @@ export default function DashboardLayout({ children }) {
   };
 
   const handleSwitchToSuperAdmin = () => {
-    localStorage.removeItem("entered_as_manager");
-    localStorage.removeItem("active_ip");
+    secureStorage.removeItem("entered_as_manager");
+    secureStorage.removeItem("active_ip");
     localStorage.removeItem("elev8_theme");
-    localStorage.removeItem("user_permissions");
+    secureStorage.removeItem("user_permissions");
     setEnteredAsManager(false);
     setActiveIp(null);
     updateTheme(initialTheme);
@@ -191,22 +184,20 @@ export default function DashboardLayout({ children }) {
   const isSuperAdmin = user?.role === "super_admin";
 
   const filteredNav = navigation.filter(item => {
-    // Super admin only pages - hide when entered as manager
     if (item.superAdminOnly) return isSuperAdmin && !enteredAsManager;
-    // Admin only pages
+
     if (item.adminOnly) {
       if (isSuperAdmin) return enteredAsManager;
-      // Check if metric trees are required
+
       if (item.showIfMetricTrees && !hasMetricTrees) return false;
-      // IP Owner has access to all pages
+
       if (isIpOwner) return true;
-      // If no permissions saved, show all admin pages (fallback)
+
       if (userPermissions.length === 0) return true;
       return !item.permission || userPermissions.includes(item.permission);
     }
-    // Pages with permission check for admin
+
     if (item.permission && !isSuperAdmin) {
-      // IP Owner has access to all pages
       if (isIpOwner) return true;
       if (userPermissions.length === 0) return true;
       return userPermissions.includes(item.permission);
@@ -216,7 +207,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex h-screen bg-[#fafafa] font-[family-name:var(--font-poppins)] text-gray-900 overflow-hidden">
-      {/* Mobile Menu Overlay */}
+      {}
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -224,7 +215,7 @@ export default function DashboardLayout({ children }) {
         />
       )}
 
-      {/* Sidebar - Desktop */}
+      {}
       <aside className={`${isCollapsed ? "w-20" : "w-64"} bg-white border-r border-gray-100 hidden md:flex flex-col transition-all duration-300 relative z-30`}>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -252,7 +243,7 @@ export default function DashboardLayout({ children }) {
 
         <nav className="flex-1 px-4 space-y-1 mt-8">
           {loading ? (
-            // Loading skeleton for menu items
+
             <>
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="w-full flex items-center px-4 py-3 rounded-xl">
@@ -297,7 +288,7 @@ export default function DashboardLayout({ children }) {
         </div>
       </aside>
 
-      {/* Sidebar - Mobile */}
+      {}
       <aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-100 flex flex-col transition-transform duration-300 z-50 md:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 h-20 flex items-center justify-between border-b border-gray-100">
           <span className="text-[12.5px] font-bold text-gray-950 uppercase tracking-[0.2em]">
@@ -315,7 +306,7 @@ export default function DashboardLayout({ children }) {
 
         <nav className="flex-1 px-4 space-y-1 mt-8 overflow-y-auto">
           {loading ? (
-            // Loading skeleton for mobile menu items
+
             <>
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="w-full flex items-center px-4 py-3 rounded-xl">
@@ -358,12 +349,12 @@ export default function DashboardLayout({ children }) {
         </div>
       </aside>
 
-      {/* Main */}
+      {}
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-10 z-30 shrink-0 relative">
-          {/* Left Section */}
+          {}
           <div className="flex items-center space-x-3 md:space-x-4 min-w-0 flex-1">
-            {/* Mobile Menu Button */}
+            {}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               className="md:hidden h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-all shrink-0"
@@ -408,21 +399,17 @@ export default function DashboardLayout({ children }) {
                             <div className="px-4 py-2 mb-1 border-b border-gray-50"><p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Switch Property</p></div>
                             {user.ips.map((ip) => (
                               <button key={ip.id} onClick={() => {
-                                // Clear all IP-specific localStorage data to prevent stale data
-                                localStorage.removeItem("user_permissions");
-                                localStorage.removeItem("is_ip_owner");
-                                localStorage.removeItem("user_role_name");
-                                localStorage.removeItem("metric_trees");
+                                secureStorage.removeItem("user_permissions");
+                                secureStorage.removeItem("is_ip_owner");
+                                secureStorage.removeItem("user_role_name");
+                                secureStorage.removeItem("metric_trees");
 
-                                // Set new active IP in localStorage
-                                localStorage.setItem("active_ip", JSON.stringify(ip));
+                                secureStorage.setItem("active_ip", ip);
 
-                                // Update AuthContext - this will trigger re-render in all components using useAuth()
                                 setActiveIp(ip);
 
                                 setIsSelectorOpen(false);
 
-                                // Reset local state to force re-fetch
                                 setUserPermissions([]);
                                 setIsIpOwner(false);
                                 setUserRoleName("");
@@ -431,7 +418,6 @@ export default function DashboardLayout({ children }) {
                                 if (ip?.primary_color) updateTheme({ primary_color: ip.primary_color, secondary_color: ip.secondary_color || "#f4f4f5", tournamentName: ip.name });
                                 toast.success(`Switched to ${ip.name}`, { style: { background: '#f0fdf4', color: '#166534', borderRadius: '16px', border: '1px solid #bbf7d0' } });
 
-                                // Force navigation to dashboard to trigger fresh data load
                                 router.push("/dashboard");
                               }} className={`w-full flex items-center px-4 py-3 text-left transition-all hover:bg-gray-50 ${activeIp?.id === ip.id ? 'bg-gray-50/50' : ''}`}>
                                 <div className="h-7 w-7 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center mr-3 text-[11px] font-bold text-gray-400">{ip.code?.substring(0, 2)}</div>
@@ -462,7 +448,7 @@ export default function DashboardLayout({ children }) {
             )}
           </div>
 
-          {/* Right Section */}
+          {}
           <div className="flex items-center space-x-2 md:space-x-6 shrink-0">
             {mounted && user?.role === "super_admin" && enteredAsManager && (
               <button
@@ -491,7 +477,7 @@ export default function DashboardLayout({ children }) {
                 </div>
               </div>
 
-              {/* Profile Dropdown */}
+              {}
               {isProfileOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
@@ -517,7 +503,7 @@ export default function DashboardLayout({ children }) {
           </div>
         </header>
 
-        {/* Change Password Modal */}
+        {}
         {isChangePasswordOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden animate-in zoom-in-95 duration-200">
@@ -534,7 +520,7 @@ export default function DashboardLayout({ children }) {
                 </button>
               </div>
               <form onSubmit={handleChangePassword} className="p-6 space-y-4">
-                {/* Current Password */}
+                {}
                 <div className="flex flex-col space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Current Password</label>
                   <div className="relative">
@@ -555,7 +541,7 @@ export default function DashboardLayout({ children }) {
                   </div>
                 </div>
 
-                {/* New Password */}
+                {}
                 <div className="flex flex-col space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">New Password</label>
                   <div className="relative">
@@ -576,7 +562,7 @@ export default function DashboardLayout({ children }) {
                   </div>
                 </div>
 
-                {/* Confirm Password */}
+                {}
                 <div className="flex flex-col space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Confirm New Password</label>
                   <div className="relative">
@@ -597,7 +583,7 @@ export default function DashboardLayout({ children }) {
                   </div>
                 </div>
 
-                {/* Match indicator */}
+                {}
                 {passwordForm.confirm && (
                   <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${passwordForm.password === passwordForm.confirm ? "text-emerald-500" : "text-red-400"}`}>
                     {passwordForm.password === passwordForm.confirm ? "✓ Passwords match" : "✗ Passwords do not match"}
