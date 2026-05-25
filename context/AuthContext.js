@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { clearTokenCache } from "@/lib/apiClient";
+import secureStorage from "@/lib/secureStorage";
 
 const AuthContext = createContext();
 
@@ -17,15 +18,15 @@ export function AuthProvider({ children }) {
     setMounted(true);
 
     try {
-      const savedUser = localStorage.getItem("auth_user");
-      if (savedUser) setUser(JSON.parse(savedUser));
+      const savedUser = secureStorage.getItem("auth_user");
+      if (savedUser) setUser(savedUser);
     } catch (e) {
       console.error("Failed to load user:", e);
     }
 
     try {
-      const savedIp = localStorage.getItem("active_ip");
-      if (savedIp) setActiveIpState(JSON.parse(savedIp));
+      const savedIp = secureStorage.getItem("active_ip");
+      if (savedIp) setActiveIpState(savedIp);
     } catch (e) {
       console.error("Failed to load active IP:", e);
     }
@@ -35,8 +36,8 @@ export function AuthProvider({ children }) {
     if (!mounted) return;
 
     const initializeAuth = async () => {
-      const token = localStorage.getItem("auth_token");
-      const savedUser = localStorage.getItem("auth_user");
+      const token = secureStorage.getItem("auth_token");
+      const savedUser = secureStorage.getItem("auth_user");
 
       if (!token || !savedUser) {
         setLoading(false);
@@ -44,7 +45,7 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const parsedUser = JSON.parse(savedUser);
+        const parsedUser = savedUser;
 
         const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}${process.env.NEXT_PUBLIC_MY_PROPERTIES_ENDPOINT}`;
 
@@ -62,17 +63,17 @@ export function AuthProvider({ children }) {
 
         const data = await response.json();
         const items = Array.isArray(data.data) ? data.data : [];
-        const ips = items.map((item) => item.property);
+        const ips = items.map((item) => item.property).filter(Boolean);
 
         const updatedUser = { ...parsedUser, ips };
-        localStorage.setItem("auth_user", JSON.stringify(updatedUser));
+        secureStorage.setItem("auth_user", updatedUser);
         setUser(updatedUser);
 
         const isIpOwner = items.some(item => item.role_id === 2);
-        localStorage.setItem("is_ip_owner", JSON.stringify(isIpOwner));
+        secureStorage.setItem("is_ip_owner", isIpOwner);
 
         const userRole = items[0]?.role?.name || items[0]?.role || "IP Admin";
-        localStorage.setItem("user_role_name", userRole);
+        secureStorage.setItem("user_role_name", userRole);
 
         const firstProperty = items[0]?.property;
         const primaryColor = firstProperty?.primary_color || items[0]?.primary_color;
@@ -84,7 +85,7 @@ export function AuthProvider({ children }) {
             secondary_color: secondaryColor || "#c6d8e2"
           };
 
-          localStorage.setItem("property_colors", JSON.stringify(themeColors));
+          secureStorage.setItem("property_colors", themeColors);
           window.dispatchEvent(new CustomEvent('property-colors-updated', { detail: themeColors }));
         }
 
@@ -94,9 +95,10 @@ export function AuthProvider({ children }) {
             item.permissions.forEach(code => permCodes.add(code));
           }
         });
-        localStorage.setItem("user_permissions", JSON.stringify([...permCodes]));
+        secureStorage.setItem("user_permissions", [...permCodes]);
 
         const metricTreePromises = ips.map(async (ip) => {
+          if (!ip) return null;
           const sportId = ip.sport_id || ip.sport?.id;
           if (!sportId) return null;
 
@@ -123,10 +125,9 @@ export function AuthProvider({ children }) {
           validTrees.forEach(({ propertyId, sportId, tree }) => {
             treesMap[propertyId] = { sportId, tree };
           });
-          localStorage.setItem("metric_trees", JSON.stringify(treesMap));
+          secureStorage.setItem("metric_trees", treesMap);
         }
-
-      } catch (error) {
+} catch (error) {
         console.error("Auth initialization error:", error);
       }
 
@@ -139,9 +140,9 @@ export function AuthProvider({ children }) {
   const setActiveIp = useCallback((ip) => {
     setActiveIpState(ip);
     if (ip) {
-      localStorage.setItem("active_ip", JSON.stringify(ip));
+      secureStorage.setItem("active_ip", ip);
     } else {
-      localStorage.removeItem("active_ip");
+      secureStorage.removeItem("active_ip");
     }
   }, []);
 
@@ -179,8 +180,8 @@ export function AuthProvider({ children }) {
         ips: [],
       };
 
-      localStorage.setItem("auth_token", token);
-      localStorage.setItem("auth_user", JSON.stringify(authenticatedUser));
+      secureStorage.setItem("auth_token", token);
+      secureStorage.setItem("auth_user", authenticatedUser);
       setUser(authenticatedUser);
 
       return { success: true, user: authenticatedUser, token };
@@ -193,7 +194,7 @@ export function AuthProvider({ children }) {
     setUser((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, ips };
-      localStorage.setItem("auth_user", JSON.stringify(updated));
+      secureStorage.setItem("auth_user", updated);
       return updated;
     });
   }, []);
@@ -216,7 +217,7 @@ export function AuthProvider({ children }) {
       "property_colors"
     ];
 
-    keysToRemove.forEach(key => localStorage.removeItem(key));
+    keysToRemove.forEach(key => secureStorage.removeItem(key));
     router.push("/login");
   }, [router]);
 

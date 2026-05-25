@@ -8,6 +8,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { hasPermission } from "@/lib/permissions";
+import secureStorage from "@/lib/secureStorage";
 
 const STATUS_OPTIONS = [
     { value: "pending", label: "Pending", color: "bg-amber-500" },
@@ -19,17 +20,14 @@ export default function ApprovalsPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
 
-    // Permission checks
     const canView = hasPermission("approvals:view", user);
     const canApprove = hasPermission("approvals:edit", user) || hasPermission("approvals:add", user);
 
-    // Change Requests state
     const [changeRequests, setChangeRequests] = useState([]);
     const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState("pending");
     const [isProcessing, setIsProcessing] = useState({});
 
-    // Editions state
     const [editions, setEditions] = useState([]);
     const [selectedEditionId, setSelectedEditionId] = useState("");
     const [editionsLoading, setEditionsLoading] = useState(false);
@@ -43,7 +41,6 @@ export default function ApprovalsPage() {
         gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
         gsap.fromTo(contentRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.1 });
 
-        // Fetch editions on mount
         fetchEditions();
     }, []);
 
@@ -55,7 +52,7 @@ export default function ApprovalsPage() {
 
     const fetchEditions = async () => {
         setEditionsLoading(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip", null);
 
         if (!activeIp?.id) {
             toast.error("No active IP found");
@@ -72,7 +69,6 @@ export default function ApprovalsPage() {
             const editionsArray = Array.isArray(editionsData) ? editionsData : [];
             setEditions(editionsArray);
 
-            // Auto-select first edition
             if (editionsArray.length > 0) {
                 setSelectedEditionId(editionsArray[0].id);
             }
@@ -123,8 +119,6 @@ export default function ApprovalsPage() {
         setIsProcessing(prev => ({ ...prev, [requestId]: false }));
     };
 
-
-
     const getStatusBadge = (status) => {
         const statusConfig = STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
         return (
@@ -163,7 +157,7 @@ export default function ApprovalsPage() {
 
     return (
         <div ref={pageRef} className="space-y-6 opacity-0">
-            {/* Header */}
+            {}
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
                     <div className="flex items-center space-x-2 mb-1">
@@ -175,7 +169,7 @@ export default function ApprovalsPage() {
                 </div>
 
                 <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-                    {/* Edition Selector */}
+                    {}
                     {editions.length > 0 && (
                         <div className="flex items-center gap-2">
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Edition:</label>
@@ -195,7 +189,7 @@ export default function ApprovalsPage() {
                         </div>
                     )}
 
-                    {/* Status Filter */}
+                    {}
                     <div className="flex items-center gap-2">
                         {STATUS_OPTIONS.map((option) => (
                             <button
@@ -214,7 +208,7 @@ export default function ApprovalsPage() {
                 </div>
             </div>
 
-            {/* Content */}
+            {}
             <div ref={contentRef} className="px-4">
                 {loading ? (
                     <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 space-y-3">

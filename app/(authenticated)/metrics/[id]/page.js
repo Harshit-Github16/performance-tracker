@@ -39,7 +39,6 @@ export default function MetricDefinitionsPage() {
     };
     const [formData, setFormData] = useState(defaultForm);
 
-
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -102,7 +101,6 @@ export default function MetricDefinitionsPage() {
                     : [];
             setDefinitions(arr);
 
-            // Calculate total pages from total and limit
             const totalRecords = data?.total || 0;
             const limitPerPage = data?.limit || 10;
             const calculatedPages = Math.ceil(totalRecords / limitPerPage);
@@ -316,7 +314,7 @@ export default function MetricDefinitionsPage() {
 
     return (
         <div ref={pageRef} className="space-y-6 opacity-0">
-            {/* Header */}
+            {}
             <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
                 <div>
                     <button
@@ -349,20 +347,9 @@ export default function MetricDefinitionsPage() {
                 </Button>
             </div>
 
-            {/* Filters + Table */}
+            {}
             <div ref={tableRef} className="px-4 space-y-4">
-                {/* <div className="flex flex-wrap items-center gap-3">
-                    <select
-                        value={filterTargetLevel}
-                        onChange={(e) => { setFilterTargetLevel(e.target.value); setPage(1); }}
-                        className="px-4 py-3 bg-white border border-gray-100 rounded-xl text-sm font-semibold text-gray-600 outline-none focus:border-gray-200 shadow-sm"
-                    >
-                        <option value="">All Levels</option>
-                        {TARGET_LEVELS.map(l => (
-                            <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
-                        ))}
-                    </select>
-                </div> */}
+                {}
 
                 {tableLoading ? (
                     <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm p-12 flex items-center justify-center">
@@ -389,7 +376,7 @@ export default function MetricDefinitionsPage() {
                 )}
             </div>
 
-            {/* Modal */}
+            {}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
                     <div ref={modalRef} className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -413,7 +400,7 @@ export default function MetricDefinitionsPage() {
                         </div>
 
                         <form onSubmit={handleSave} className="p-6 space-y-4">
-                            {/* Sport Dropdown */}
+                            {}
                             <div className="flex flex-col space-y-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Sport</label>
                                 <select
@@ -431,7 +418,7 @@ export default function MetricDefinitionsPage() {
                                 </select>
                             </div>
 
-                            {/* Label and Key Name */}
+                            {}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Label</label>
@@ -461,7 +448,7 @@ export default function MetricDefinitionsPage() {
                                 </div>
                             </div>
 
-                            {/* Data Type and Target Level */}
+                            {}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Data Type</label>
@@ -490,7 +477,7 @@ export default function MetricDefinitionsPage() {
                                 </div>
                             </div>
 
-                            {/* Is Match Required and Is Player Required */}
+                            {}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Match Required</label>
@@ -517,7 +504,7 @@ export default function MetricDefinitionsPage() {
                                 </div>
                             </div>
 
-                            {/* Required Checkbox */}
+                            {}
                             <div className="flex flex-col space-y-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Required</label>
                                 <div className="flex items-center h-[48px] px-4 bg-gray-50 border border-gray-100 rounded-xl">
@@ -539,7 +526,7 @@ export default function MetricDefinitionsPage() {
                                 </div>
                             </div>
 
-                            {/* Submit Button */}
+                            {}
                             <div className="pt-2">
                                 <Button type="submit" disabled={isSaving} className="w-full">
                                     {isSaving ? "SAVING..." : editingId ? "SAVE CHANGES" : "CREATE DEFINITION"}

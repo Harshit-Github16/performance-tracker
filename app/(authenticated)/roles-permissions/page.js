@@ -10,13 +10,13 @@ import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import AccessGuard from "@/components/AccessGuard";
 import { hasPermission } from "@/lib/permissions";
+import secureStorage from "@/lib/secureStorage";
 
 export default function RolesPermissionsPage() {
     const { theme } = useTheme();
     const { user } = useAuth();
     const router = useRouter();
 
-    // Permission checks
     const canView = hasPermission("role:view", user);
     const canAdd = hasPermission("role:add", user);
     const canEdit = hasPermission("role:edit", user);
@@ -27,14 +27,12 @@ export default function RolesPermissionsPage() {
     const [view, setView] = useState("list");
     const [editingRole, setEditingRole] = useState(null);
 
-    // Permissions from API
     const [permModules, setPermModules] = useState([]);
     const [permsLoading, setPermsLoading] = useState(false);
 
-    // Form state
     const [roleName, setRoleName] = useState("");
     const [roleStatus, setRoleStatus] = useState("Active");
-    // selectedCodes: Set of permission IDs (numbers)
+
     const [selectedCodes, setSelectedCodes] = useState(new Set());
 
     const pageRef = useRef(null);
@@ -56,7 +54,7 @@ export default function RolesPermissionsPage() {
 
     const fetchRoles = async () => {
         setTableLoading(true);
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
+        const activeIp = secureStorage.getItem("active_ip");
         const propertyId = activeIp?.id;
         const endpoint = propertyId
             ? `${process.env.NEXT_PUBLIC_ROLES_ENDPOINT}?property_id=${propertyId}`
@@ -86,7 +84,6 @@ export default function RolesPermissionsPage() {
                     ? result.data
                     : [];
 
-            // Group flat list by module (part before ":")
             const moduleMap = {};
             raw.forEach(perm => {
                 const moduleName = perm.code.split(":")[0];
@@ -116,12 +113,12 @@ export default function RolesPermissionsPage() {
                     fetchPermissions(new Set());
                 } else if (newView === "edit" && role) {
                     setRoleName(role.name || "");
-                    // Check is_active field (boolean) first, then fall back to status (string)
+
                     const isActive = role.is_active !== undefined
                         ? role.is_active
                         : (role.status === "Active" || role.status === null || role.status === undefined);
                     setRoleStatus(isActive ? "Active" : "Inactive");
-                    // role_permissions array se permission_id extract karo
+
                     const existingIds = new Set(
                         (role.role_permissions || []).map(rp => rp.permission_id)
                     );
@@ -140,10 +137,9 @@ export default function RolesPermissionsPage() {
             if (isChecking) {
                 next.add(id);
 
-                // If this is a "viewall" permission, auto-select all other permissions in the same module
                 if (permCode && permCode.endsWith(":viewall")) {
                     const moduleName = permCode.split(":")[0];
-                    // Find all permissions for this module and add them
+
                     permModules.forEach(mod => {
                         if (mod.module === moduleName) {
                             mod.permissions.forEach(p => next.add(p.id));
@@ -151,13 +147,11 @@ export default function RolesPermissionsPage() {
                     });
                 }
 
-                // Auto-select Editions View when Data Entry, Matches, Players, or Teams are selected
                 if (permCode) {
                     const moduleName = permCode.split(":")[0];
                     const dependentModules = ["data_entry", "matches", "players", "teams"];
 
                     if (dependentModules.includes(moduleName)) {
-                        // Find and auto-select editions:view permission
                         permModules.forEach(mod => {
                             if (mod.module === "editions") {
                                 const viewPerm = mod.permissions.find(p => p.code === "editions:view");
@@ -171,7 +165,6 @@ export default function RolesPermissionsPage() {
             } else {
                 next.delete(id);
 
-                // If unchecking "viewall", uncheck all permissions in the same module
                 if (permCode && permCode.endsWith(":viewall")) {
                     const moduleName = permCode.split(":")[0];
                     permModules.forEach(mod => {
@@ -180,7 +173,6 @@ export default function RolesPermissionsPage() {
                         }
                     });
                 } else {
-                    // If unchecking any other permission, also uncheck "viewall" for that module
                     const moduleName = permCode.split(":")[0];
                     permModules.forEach(mod => {
                         if (mod.module === moduleName) {
@@ -204,12 +196,10 @@ export default function RolesPermissionsPage() {
             const next = new Set(prev);
             allIds.forEach(id => allSelected ? next.delete(id) : next.add(id));
 
-            // Auto-select Editions View when Data Entry, Matches, Players, or Teams module is selected
             if (!allSelected) {
                 const dependentModules = ["data_entry", "matches", "players", "teams"];
 
                 if (dependentModules.includes(mod.module)) {
-                    // Find and auto-select editions:view permission
                     permModules.forEach(m => {
                         if (m.module === "editions") {
                             const viewPerm = m.permissions.find(p => p.code === "editions:view");
@@ -235,13 +225,13 @@ export default function RolesPermissionsPage() {
         e.preventDefault();
         if (!roleName.trim()) { toast.error("Role name is required."); return; }
 
-        const activeIp = JSON.parse(localStorage.getItem("active_ip") || "null");
-        const enteredAsManager = localStorage.getItem("entered_as_manager") === "true";
+        const activeIp = secureStorage.getItem("active_ip");
+        const enteredAsManager = secureStorage.getItem("entered_as_manager") === "true";
         const payload = {
             name: roleName,
             permissions: Array.from(selectedCodes),
             is_active: roleStatus === "Active",
-            // Pass property_id if: admin always, or super admin entered as manager
+
             ...((user?.role !== "super_admin" || enteredAsManager) && activeIp?.id && { property_id: activeIp.id }),
         };
 
@@ -288,7 +278,6 @@ export default function RolesPermissionsPage() {
         {
             header: "Status",
             render: (role) => {
-                // Check is_active field (boolean) or status field (string)
                 const isActive = role.is_active !== undefined
                     ? role.is_active
                     : (role.status === "Active" || role.status === null || role.status === undefined);
@@ -392,7 +381,7 @@ export default function RolesPermissionsPage() {
 
                 {(view === "add" || view === "edit") && (
                     <form onSubmit={handleSave} className="space-y-6">
-                        {/* Top fields */}
+                        {}
                         <div className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] p-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <Input label="Role Name" placeholder="Enter Role Name" value={roleName} onChange={(e) => setRoleName(e.target.value)} required />
@@ -412,7 +401,7 @@ export default function RolesPermissionsPage() {
                             </div>
                         </div>
 
-                        {/* Permissions */}
+                        {}
                         <div className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] overflow-hidden">
                             <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between">
                                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Permissions</span>

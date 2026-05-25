@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { initialTheme } from "@/config/theme";
+import secureStorage from "@/lib/secureStorage";
 
 const ThemeContext = createContext();
 
@@ -29,10 +30,9 @@ export function ThemeProvider({ children }) {
       }
 
       try {
-        const propertyColors = localStorage.getItem('property_colors');
+        const propertyColors = secureStorage.getItem('property_colors');
         if (propertyColors) {
-          const parsed = JSON.parse(propertyColors);
-          loadedTheme = { ...loadedTheme, ...parsed };
+          loadedTheme = { ...loadedTheme, ...propertyColors };
         }
       } catch (e) {
         console.error("Failed to parse property colors:", e);

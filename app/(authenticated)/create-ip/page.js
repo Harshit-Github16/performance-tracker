@@ -10,6 +10,7 @@ import gsap from "gsap";
 import apiClient from "@/lib/apiClient";
 import { uploadImageToGCP } from "@/lib/uploadToGCP";
 import { initialTheme } from "@/config/theme";
+import secureStorage from "@/lib/secureStorage";
 
 const SkeletonRow = () => (
   <tr className="border-b border-gray-50">
@@ -47,8 +48,8 @@ export default function CreateIPPage() {
 
   const [ips, setIps] = useState([]);
   const [sports, setSports] = useState([]);
-  const [ipOwners, setIpOwners] = useState([]); // owners of the IP being edited
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, name } of IP to delete
+  const [ipOwners, setIpOwners] = useState([]);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const deleteModalRef = useRef(null);
 
   const pageRef = useRef(null);
@@ -56,12 +57,10 @@ export default function CreateIPPage() {
   const tableRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Role-based access control
   useEffect(() => {
     if (user && user.role !== "super_admin") router.push("/dashboard");
   }, [user, router]);
 
-  // GSAP entrance + fetch IPs from API
   useEffect(() => {
     gsap.fromTo(pageRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
     gsap.fromTo(headerRef.current, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" });
@@ -81,7 +80,6 @@ export default function CreateIPPage() {
           : [];
       setSports(arr);
 
-      // Set first sport as default if not already set and sports exist
       if (arr.length > 0 && !editingId && formData.sport_id === 1) {
         setFormData(prev => ({ ...prev, sport_id: arr[0].id }));
       }
@@ -102,13 +100,11 @@ export default function CreateIPPage() {
   };
 
   const handleEnterIP = (ip) => {
-    localStorage.setItem("active_ip", JSON.stringify(ip));
-    localStorage.setItem("entered_as_manager", "true");
+    secureStorage.setItem("active_ip", ip);
+    secureStorage.setItem("entered_as_manager", "true");
 
-    // Update AuthContext so all components get the new activeIp
     setActiveIp(ip);
 
-    // Apply IP theme
     updateTheme({
       primary_color: ip.primary_color || initialTheme.primary_color,
       secondary_color: ip.secondary_color || initialTheme.secondary_color,
@@ -124,26 +120,22 @@ export default function CreateIPPage() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
     if (!validTypes.includes(file.type)) {
       setErrors(prev => ({ ...prev, logo: "Only PNG, JPG, and SVG formats are allowed" }));
       return;
     }
 
-    // Validate file size (2MB max)
-    const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+    const maxSize = 2 * 1024 * 1024;
     if (file.size > maxSize) {
       setErrors(prev => ({ ...prev, logo: "File size must be less than 2MB" }));
       return;
     }
 
-    // Clear error and show preview
     setErrors(prev => ({ ...prev, logo: "" }));
     const preview = URL.createObjectURL(file);
     setFormData({ ...formData, logo: file, logoPreview: preview });
 
-    // Upload to GCP
     toast.loading("Uploading logo...", { id: "logo-upload" });
     const uploadResult = await uploadImageToGCP(file, "logos");
 
@@ -159,26 +151,22 @@ export default function CreateIPPage() {
   const handleNextStep = (e) => {
     e.preventDefault();
 
-    // Validate IP Name length (3-50 characters)
     if (formData.name.trim().length < 3 || formData.name.trim().length > 50) {
       setErrors(prev => ({ ...prev, name: "IP Name must be between 3 and 50 characters" }));
       return;
     }
 
-    // Validate IP Code format (uppercase, 3-10 characters, alphanumeric)
     const codePattern = /^[A-Z0-9_]{3,10}$/;
     if (!codePattern.test(formData.code)) {
       setErrors(prev => ({ ...prev, code: "Code must be 3-10 uppercase letters, numbers, or underscores" }));
       return;
     }
 
-    // Validate colors are different
     if (formData.primary_color.toLowerCase() === formData.secondary_color.toLowerCase()) {
       setErrors(prev => ({ ...prev, colors: "Primary and Secondary colors must be different" }));
       return;
     }
 
-    // Clear all errors and proceed
     setErrors({ name: "", code: "", colors: "", logo: "", sport_id: "" });
     setCurrentStep(2);
   };
@@ -187,8 +175,6 @@ export default function CreateIPPage() {
   const handleSaveIP = async (e) => {
     e.preventDefault();
 
-    // Same endpoint for both create & update
-    // Update me sirf id extra field jaati hai payload mein
     const payload = {
       ...(editingId && { id: editingId }),
       name: formData.name,
@@ -221,7 +207,7 @@ export default function CreateIPPage() {
     setEditingId(ip.id);
     const owners = ip.ipOwners || [];
     setIpOwners(owners);
-    // Pre-fill with first owner if only one, else leave blank for user to pick
+
     const firstOwner = owners.length === 1 ? owners[0] : null;
     setFormData({
       name: ip.name,
@@ -368,7 +354,7 @@ export default function CreateIPPage() {
 
   return (
     <div ref={pageRef} className="space-y-6">
-      {/* Header */}
+      {}
       <div ref={headerRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
         <div>
           <div className="flex items-center space-x-2 mb-1">
@@ -386,22 +372,22 @@ export default function CreateIPPage() {
         </Button>
       </div>
 
-      {/* Table with skeleton loader */}
+      {}
       <div ref={tableRef}>
         {tableLoading ? (
           <div className="w-full bg-white rounded-2xl border border-gray-100/50 shadow-[0_20px_60px_rgba(0,0,0,0.02)] overflow-hidden">
-            {/* Fake search bar */}
+            {}
             <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
               <div className="h-10 w-64 bg-gray-100 rounded-xl animate-pulse"></div>
               <div className="h-4 w-40 bg-gray-100 rounded-lg animate-pulse"></div>
             </div>
-            {/* Fake header */}
+            {}
             <div className="border-b border-gray-50 px-6 py-2 flex gap-6">
               {["IP Name", "Sport Type", "Identifier", "Brand Colors", "Status", "Actions"].map((h) => (
                 <div key={h} className="h-3 bg-gray-100 rounded animate-pulse flex-1"></div>
               ))}
             </div>
-            {/* Skeleton rows - same count as itemsPerPage */}
+            {}
             <table className="w-full">
               <tbody>
                 {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
@@ -417,7 +403,7 @@ export default function CreateIPPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 border border-gray-100/50">
@@ -585,7 +571,7 @@ export default function CreateIPPage() {
                 </form>
               ) : (
                 <form onSubmit={handleSaveIP} className="p-8 space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                  {/* If editing and multiple owners exist, show owner selector */}
+                  {}
                   {editingId && ipOwners.length > 1 && (
                     <div className="flex flex-col space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Select Manager</label>
@@ -657,12 +643,12 @@ export default function CreateIPPage() {
           </div>
         </div>
       )}
-      {/* Delete Confirmation Modal */}
+      {}
       {deleteConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-gray-950/20 backdrop-blur-[20px] animate-in fade-in duration-200">
           <div ref={deleteModalRef} className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden">
             <div className="p-6 flex flex-col items-center text-center">
-              {/* Warning icon */}
+              {}
               <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
                 <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />

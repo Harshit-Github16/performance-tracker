@@ -6,9 +6,7 @@ import { useTheme } from "@/components/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { toast } from "sonner";
-
-
-
+import secureStorage from "@/lib/secureStorage";
 
 const ChartCard = ({ title, subtitle, children, refEl, className = "" }) => (
   <div ref={refEl} className={`bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 ${className}`}>
@@ -17,8 +15,6 @@ const ChartCard = ({ title, subtitle, children, refEl, className = "" }) => (
     {children}
   </div>
 );
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -41,35 +37,27 @@ export default function DashboardPage() {
   const PIE_COLORS = [P, S, `${P}`, `${S}`, `${P}`];
 
   const isSuperAdmin = user?.role === "super_admin";
-  const enteredAsManager = typeof window !== "undefined" && localStorage.getItem("entered_as_manager") === "true";
+  const enteredAsManager = typeof window !== "undefined" && secureStorage.getItem("entered_as_manager") === "true";
   const showSuperAdminDashboard = isSuperAdmin && !enteredAsManager;
 
-  // Initialize on mount - wait for AuthContext to load
   useEffect(() => {
-    // Wait for AuthContext to finish loading
     if (authLoading) {
-
       return;
     }
 
-    if (mounted) return; // Already initialized
+    if (mounted) return;
 
     setMounted(true);
 
-    // Check if super admin without entered_as_manager
     if (showSuperAdminDashboard) {
       fetchAdminDashboard();
       return;
     }
 
-    // IMPORTANT: Always check localStorage first for immediate state
-    const storedIp = localStorage.getItem("active_ip");
-    const parsedStoredIp = storedIp ? JSON.parse(storedIp) : null;
+    const storedIp = secureStorage.getItem("active_ip");
+    const parsedStoredIp = storedIp || null;
 
-    // Use stored IP if available, otherwise wait for AuthContext
     const currentActiveIp = parsedStoredIp || activeIp;
-
-
 
     const shouldShowIpDashboard = !!currentActiveIp;
     setShowIpDashboard(shouldShowIpDashboard);
@@ -79,20 +67,15 @@ export default function DashboardPage() {
     }
   }, [authLoading, activeIp, mounted, showSuperAdminDashboard]);
 
-  // Update when activeIp changes from AuthContext
   useEffect(() => {
     if (!mounted) return;
 
-    // Check if activeIp changed and we need to update
-    const storedIp = localStorage.getItem("active_ip");
-    const parsedStoredIp = storedIp ? JSON.parse(storedIp) : null;
+    const storedIp = secureStorage.getItem("active_ip");
+    const parsedStoredIp = storedIp || null;
     const currentActiveIp = activeIp || parsedStoredIp;
 
     const shouldShowIpDashboard = !!currentActiveIp;
 
-
-
-    // Only update if state actually changed
     if (shouldShowIpDashboard !== showIpDashboard) {
       setShowIpDashboard(shouldShowIpDashboard);
 
@@ -103,55 +86,41 @@ export default function DashboardPage() {
   }, [activeIp, mounted, showIpDashboard, editions.length]);
 
   useEffect(() => {
-
     if (showIpDashboard && selectedEditionId) {
       fetchDashboardData();
     }
   }, [selectedEditionId, showIpDashboard]);
 
   const fetchEditions = async () => {
-    // Get activeIp from AuthContext or localStorage
-    const storedIp = localStorage.getItem("active_ip");
-    const currentActiveIp = storedIp ? JSON.parse(storedIp) : activeIp;
-
-
+    const storedIp = secureStorage.getItem("active_ip");
+    const currentActiveIp = storedIp || activeIp;
 
     if (!currentActiveIp?.id) {
-
       return;
     }
-
 
     const result = await apiClient.get(
       `${process.env.NEXT_PUBLIC_EDITIONS_ENDPOINT}?property_id=${currentActiveIp.id}`
     );
-
-
 
     if (result.success) {
       const editionsData = result.data?.data?.editions || result.data?.editions || result.data?.data || [];
 
       setEditions(Array.isArray(editionsData) ? editionsData : []);
 
-      // Auto-select first edition if available
       if (editionsData.length > 0) {
-
         setSelectedEditionId(editionsData[0].id);
       } else {
-
       }
     } else {
-
       toast.error("Failed to load editions");
     }
   };
 
   const fetchDashboardData = async () => {
     if (!selectedEditionId) {
-
       return;
     }
-
 
     setLoading(true);
     const result = await apiClient.get(
@@ -159,10 +128,8 @@ export default function DashboardPage() {
     );
 
     if (result.success) {
-
       setDashboardData(result.data?.data || result.data);
     } else {
-
       toast.error(result.error || "Failed to load dashboard data");
     }
     setLoading(false);
@@ -203,7 +170,7 @@ export default function DashboardPage() {
   return (
     <div ref={pageRef} className="space-y-6 opacity-0">
 
-      {/* Header */}
+      {}
       <div className="px-4">
         <div className="flex items-center justify-between">
           <div>
@@ -217,7 +184,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Edition Selector - Shows when IP is selected */}
+          {}
           {showIpDashboard && editions.length > 0 && (
             <div className="flex items-center gap-3">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Edition:</label>
@@ -238,10 +205,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Super Admin Dashboard */}
+      {}
       {showSuperAdminDashboard && (
         <>
-          {/* Loading State */}
+          {}
           {loading && (
             <div className="px-4">
               <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -254,7 +221,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* No Data State */}
+          {}
           {!loading && !adminDashboardData && (
             <div className="px-4">
               <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -269,10 +236,10 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Admin Dashboard Content */}
+          {}
           {!loading && adminDashboardData && (
             <>
-              {/* System Overview Cards */}
+              {}
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 px-4">
                 {[
                   { label: "Total Properties", value: adminDashboardData.system_overview?.total_properties, icon: "🏢", color: P },
@@ -294,9 +261,9 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              {/* Change Request Queue & Data Quality */}
+              {}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
-                {/* Change Request Queue */}
+                {}
                 <div ref={el => chartsRef.current[0] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Change Request Queue</h3>
@@ -328,7 +295,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Data Quality Metrics */}
+                {}
                 <div ref={el => chartsRef.current[1] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Data Quality</h3>
@@ -390,9 +357,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Users by Role & Metric Health */}
+              {}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
-                {/* Users by Role */}
+                {}
                 <div ref={el => chartsRef.current[2] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Users by Role</h3>
@@ -413,7 +380,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Metric Health */}
+                {}
                 <div ref={el => chartsRef.current[3] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">Metric Health</h3>
@@ -447,7 +414,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Recent Audit Feed */}
+              {}
               <div className="px-4">
                 <div ref={el => chartsRef.current[4] = el} className="bg-white rounded-2xl border border-gray-100/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
                   <div className="mb-6">
@@ -482,7 +449,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Loading State - IP Dashboard */}
+      {}
       {!showSuperAdminDashboard && showIpDashboard && loading && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -495,7 +462,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* No Editions State - IP Dashboard */}
+      {}
       {!showSuperAdminDashboard && showIpDashboard && !loading && editions.length === 0 && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -510,7 +477,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* No Dashboard Data State - IP Dashboard */}
+      {}
       {!showSuperAdminDashboard && showIpDashboard && !loading && editions.length > 0 && selectedEditionId && !dashboardData && (
         <div className="px-4">
           <div className="bg-white rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-12 flex flex-col items-center justify-center">
@@ -525,10 +492,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Dashboard Content - Shows when IP is selected (NOT for super admin) */}
+      {}
       {!showSuperAdminDashboard && showIpDashboard && !loading && dashboardData && (
         <>
-          {/* Property & Edition Info */}
+          {}
           <div className="px-4">
             <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6">
               <div className="flex items-center justify-between">
@@ -544,7 +511,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Key Metrics Grid */}
+          {}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4">
             {dashboardData.metrics?.slice(0, 8).map((metric, i) => {
               const icons = ["🏆", "👥", "📍", "⚡", "📅", "💼", "👔", "🎯"];
@@ -564,9 +531,9 @@ export default function DashboardPage() {
             })}
           </div>
 
-          {/* Performance Metrics */}
+          {}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
-            {/* Raid & Tackle Stats */}
+            {}
             <ChartCard title="Raid & Tackle Statistics" subtitle="Performance" refEl={el => chartsRef.current[0] = el}>
               <div className="space-y-4">
                 {dashboardData.metrics?.filter(m =>
@@ -591,7 +558,7 @@ export default function DashboardPage() {
               </div>
             </ChartCard>
 
-            {/* Special Achievements */}
+            {}
             <ChartCard title="Special Achievements" subtitle="Highlights" refEl={el => chartsRef.current[1] = el}>
               <div className="grid grid-cols-2 gap-3">
                 {dashboardData.metrics?.filter(m =>
@@ -612,7 +579,7 @@ export default function DashboardPage() {
               </div>
             </ChartCard>
 
-            {/* Cards Distribution */}
+            {}
             <ChartCard title="Disciplinary Cards" subtitle="Match Conduct" refEl={el => chartsRef.current[2] = el}>
               <div className="space-y-4">
                 {dashboardData.metrics?.filter(m => m.metric.includes("Card")).map((metric, i) => {
@@ -634,9 +601,9 @@ export default function DashboardPage() {
             </ChartCard>
           </div>
 
-          {/* Staff & Financial Overview */}
+          {}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4">
-            {/* Staff Distribution */}
+            {}
             <ChartCard title="Staff Distribution" subtitle="Team Personnel" refEl={el => chartsRef.current[3] = el}>
               <div className="space-y-3">
                 {dashboardData.metrics?.filter(m =>
@@ -662,7 +629,7 @@ export default function DashboardPage() {
               </div>
             </ChartCard>
 
-            {/* Prize Money & Contributions */}
+            {}
             <ChartCard title="Financial Overview" subtitle="Prize Money & Contributions" refEl={el => chartsRef.current[4] = el}>
               <div className="space-y-3">
                 {dashboardData.metrics?.filter(m =>
@@ -691,7 +658,7 @@ export default function DashboardPage() {
             </ChartCard>
           </div>
 
-          {/* Additional Metrics Table */}
+          {}
           <div className="px-4">
             <ChartCard title="All Metrics Overview" subtitle="Complete Statistics" refEl={el => chartsRef.current[5] = el}>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -711,7 +678,6 @@ export default function DashboardPage() {
           </div>
         </>
       )}
-
 
     </div>
   );
