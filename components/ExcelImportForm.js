@@ -50,6 +50,102 @@ export default function ExcelImportForm({
 
 
 
+  // Triggers browser download of template file
+  const handleDownloadTemplate = () => {
+    let headers = [];
+    let sampleData = [];
+
+    if (type === "matches") {
+      headers = [
+        "Match No",
+        "Round",
+        "Team 1",
+        "Team 2",
+        "Venue",
+        "Scheduled At",
+        "Actual Start Time",
+        "Actual End Time",
+      ];
+      sampleData = [
+        {
+          "Match No": 1,
+          Round: "Group Stage",
+          "Team 1": teams[0]?.name || "Team A",
+          "Team 2": teams[1]?.name || "Team B",
+          Venue: "Stadium A",
+          "Scheduled At": "2026-05-25 19:30:00",
+          "Actual Start Time": "",
+          "Actual End Time": "",
+        },
+        {
+          "Match No": 2,
+          Round: "Group Stage",
+          "Team 1": teams[0]?.short_name || "TA",
+          "Team 2": teams[1]?.short_name || "TB",
+          Venue: "Stadium B",
+          "Scheduled At": "2026-05-26 19:30:00",
+          "Actual Start Time": "",
+          "Actual End Time": "",
+        },
+      ];
+    } else if (type === "teams") {
+      headers = ["Team Name", "Short Name", "Logo URL"];
+      sampleData = [
+        {
+          "Team Name": "Mumbai Indians",
+          "Short Name": "MI",
+          "Logo URL": "https://storage.googleapis.com/elev8-apps/teams/mi-logo.png",
+        },
+        {
+          "Team Name": "Chennai Super Kings",
+          "Short Name": "CSK",
+          "Logo URL": "",
+        },
+      ];
+    } else if (type === "players") {
+      headers = [
+        "Full Name",
+        "Role",
+        "Team",
+        "External ID",
+        "Source",
+        "Image URL",
+      ];
+      sampleData = [
+        {
+          "Full Name": "Virat Kohli",
+          Role: "PLAYER",
+          Team: teams[0]?.name || "Team A",
+          "External ID": "P001",
+          Source: "manual",
+          "Image URL": "",
+        },
+        {
+          "Full Name": "Rahul Dravid",
+          Role: "COACH",
+          Team: teams[0]?.short_name || "TA",
+          "External ID": "C001",
+          Source: "manual",
+          "Image URL": "",
+        },
+        {
+          "Full Name": "Match Referee",
+          Role: "OFFICIAL",
+          Team: "",
+          "External ID": "O001",
+          Source: "manual",
+          "Image URL": "",
+        },
+      ];
+    }
+
+    const ws = XLSX.utils.json_to_sheet(sampleData, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, `${type}_import_template.xlsx`);
+    toast.success("Template download started.");
+  };
+
   // Handles reading the Excel / CSV file
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -366,7 +462,13 @@ export default function ExcelImportForm({
           </p>
 
           <div className="flex gap-4">
-
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="px-4 py-2 bg-white border border-gray-100 text-gray-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm"
+            >
+              Download Template
+            </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
