@@ -427,7 +427,14 @@ export default function MetricDefinitionsPage() {
                                         placeholder="e.g. Runs Scored"
                                         required
                                         value={formData.label}
-                                        onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                label: val,
+                                                key_name: val.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "")
+                                            }));
+                                        }}
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium text-gray-950 outline-none transition-all focus:bg-white focus:border-gray-950"
                                     />
                                 </div>
