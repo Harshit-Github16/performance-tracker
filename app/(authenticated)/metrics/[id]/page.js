@@ -34,7 +34,7 @@ export default function MetricDefinitionsPage() {
         data_type: "integer",
         target_level: "match",
         is_required: false,
-        is_match_required: false,
+        is_match_required: true,
         is_player_required: false,
     };
     const [formData, setFormData] = useState(defaultForm);
@@ -134,7 +134,7 @@ export default function MetricDefinitionsPage() {
                 data_type: def.data_type || "integer",
                 target_level: def.target_level || "match",
                 is_required: def.is_required ?? false,
-                is_match_required: def.is_match_required ?? false,
+                is_match_required: def.target_level === "match" ? true : (def.is_match_required ?? false),
                 is_player_required: def.is_player_required ?? false,
             });
         } else {
@@ -467,7 +467,14 @@ export default function MetricDefinitionsPage() {
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Target Level</label>
                                     <select
                                         value={formData.target_level}
-                                        onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                target_level: val,
+                                                is_match_required: val === "match" ? true : prev.is_match_required
+                                            }));
+                                        }}
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
                                     >
                                         {TARGET_LEVELS.map(l => (
@@ -484,11 +491,17 @@ export default function MetricDefinitionsPage() {
                                     <select
                                         value={formData.is_match_required ? "yes" : "no"}
                                         onChange={(e) => setFormData({ ...formData, is_match_required: e.target.value === "yes" })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                        disabled={formData.target_level === "match"}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                                     >
                                         <option value="no">No</option>
                                         <option value="yes">Yes</option>
                                     </select>
+                                    {formData.target_level === "match" && (
+                                        <span className="text-[11px] text-gray-400 font-medium px-1 mt-0.5">
+                                            Since Target Level is Match, Match Required will remain Yes
+                                        </span>
+                                    )}
                                 </div>
 
                                 <div className="flex flex-col space-y-2">

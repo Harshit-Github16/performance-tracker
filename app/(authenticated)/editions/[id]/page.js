@@ -361,6 +361,11 @@ export default function EditionDetailPage() {
             return;
         }
 
+        if (definition?.target_level === "daily" && !rowData.date) {
+            toast.error("Please select a date");
+            return;
+        }
+
         if (rowData.value === undefined || rowData.value === null || rowData.value === "") {
             toast.error("Please enter a value");
             return;
@@ -373,7 +378,7 @@ export default function EditionDetailPage() {
             edition_id: Number(id),
             match_id: definition?.is_match_required && rowData.match_id ? Number(rowData.match_id) : null,
             person_id: definition?.is_player_required && rowData.person_id ? Number(rowData.person_id) : null,
-            recorded_date: currentDate,
+            recorded_date: definition?.target_level === "daily" ? rowData.date : currentDate,
             value_text: String(rowData.value)
         };
 
@@ -1511,107 +1516,129 @@ export default function EditionDetailPage() {
                                     </div>
 
                                     {}
-                                    <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm overflow-hidden">
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
-                                                <thead className="bg-gray-50 border-b border-gray-100">
-                                                    <tr>
-                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Metric</th>
-                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Match</th>
-                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Player</th>
-                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Value</th>
-                                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-100">
-                                                    {metricTree[activeMetricCategory]?.metric_definitions?.map((definition) => {
-                                                        const rowData = metricRowData[definition.id] || {};
-                                                        return (
-                                                            <tr key={definition.id} className="hover:bg-gray-50/50 transition-colors">
-                                                                <td className="px-4 py-3">
-                                                                    <span className="text-sm font-semibold text-gray-950">{definition.label}</span>
-                                                                </td>
-                                                                <td className="px-4 py-3">
-                                                                    {definition.is_match_required ? (
-                                                                        <select
-                                                                            value={rowData.match_id || ""}
-                                                                            onChange={(e) => updateMetricRowData(definition.id, "match_id", e.target.value)}
-                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                        >
-                                                                            <option value="">Select match</option>
-                                                                            {matches.map(match => {
-                                                                                const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
-                                                                                const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
-                                                                                const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
-                                                                                const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
-                                                                                return (
-                                                                                    <option key={match.id} value={match.id}>
-                                                                                        #{match.match_no} - {t1Name} vs {t2Name}
-                                                                                    </option>
-                                                                                );
-                                                                            })}
-                                                                        </select>
-                                                                    ) : (
-                                                                        <span className="text-sm text-gray-400 font-semibold px-2">—</span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3">
-                                                                    {definition.is_player_required ? (
-                                                                        <select
-                                                                            value={rowData.person_id || ""}
-                                                                            onChange={(e) => updateMetricRowData(definition.id, "person_id", e.target.value)}
-                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                        >
-                                                                            <option value="">Select player</option>
-                                                                            {players.map(player => (
-                                                                                <option key={player.id} value={player.id}>
-                                                                                    {player.full_name} {player.role && player.role !== "PLAYER" ? `(${player.role})` : ""}
-                                                                                </option>
-                                                                            ))}
-                                                                        </select>
-                                                                    ) : (
-                                                                        <span className="text-sm text-gray-400 font-semibold px-2">—</span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3">
-                                                                    {definition.data_type === "boolean" ? (
-                                                                        <select
-                                                                            value={rowData.value || ""}
-                                                                            onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
-                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                        >
-                                                                            <option value="">Select</option>
-                                                                            <option value="true">Yes</option>
-                                                                            <option value="false">No</option>
-                                                                        </select>
-                                                                    ) : (
-                                                                        <input
-                                                                            type={definition.data_type === "integer" || definition.data_type === "float" ? "number" : "text"}
-                                                                            step={definition.data_type === "float" ? "0.01" : definition.data_type === "integer" ? "1" : undefined}
-                                                                            placeholder="Enter value"
-                                                                            value={rowData.value || ""}
-                                                                            onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
-                                                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
-                                                                        />
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-center">
-                                                                    <button
-                                                                        onClick={() => handleSubmitMetricRow(definition.id)}
-                                                                        disabled={!canEditMetricField()}
-                                                                        className="px-4 py-2 rounded-lg text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
-                                                                        style={{ backgroundColor: theme.primary_color }}
-                                                                    >
-                                                                        Submit
-                                                                    </button>
-                                                                </td>
+                                    {(() => {
+                                        const hasDailyMetrics = !!metricTree?.[activeMetricCategory]?.metric_definitions?.some(def => def.target_level === "daily");
+                                        return (
+                                            <div className="bg-white rounded-2xl border border-gray-100/50 shadow-sm overflow-hidden">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full">
+                                                        <thead className="bg-gray-50 border-b border-gray-100">
+                                                            <tr>
+                                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Metric</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Match</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Player</th>
+                                                                {hasDailyMetrics && (
+                                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Date</th>
+                                                                )}
+                                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Value</th>
+                                                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
                                                             </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-100">
+                                                            {metricTree[activeMetricCategory]?.metric_definitions?.map((definition) => {
+                                                                const rowData = metricRowData[definition.id] || {};
+                                                                return (
+                                                                    <tr key={definition.id} className="hover:bg-gray-50/50 transition-colors">
+                                                                        <td className="px-4 py-3">
+                                                                            <span className="text-sm font-semibold text-gray-950">{definition.label}</span>
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                            {definition.is_match_required ? (
+                                                                                <select
+                                                                                    value={rowData.match_id || ""}
+                                                                                    onChange={(e) => updateMetricRowData(definition.id, "match_id", e.target.value)}
+                                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                                >
+                                                                                    <option value="">Select match</option>
+                                                                                    {matches.map(match => {
+                                                                                        const t1 = match.team1 || teams.find(t => t.id === match.team1_id);
+                                                                                        const t2 = match.team2 || teams.find(t => t.id === match.team2_id);
+                                                                                        const t1Name = (typeof t1 === "object" ? t1?.name : t1) || `Team ${match.team1_id}`;
+                                                                                        const t2Name = (typeof t2 === "object" ? t2?.name : t2) || `Team ${match.team2_id}`;
+                                                                                        return (
+                                                                                            <option key={match.id} value={match.id}>
+                                                                                                #{match.match_no} - {t1Name} vs {t2Name}
+                                                                                            </option>
+                                                                                        );
+                                                                                    })}
+                                                                                </select>
+                                                                            ) : (
+                                                                                <span className="text-sm text-gray-400 font-semibold px-2">—</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                            {definition.is_player_required ? (
+                                                                                <select
+                                                                                    value={rowData.person_id || ""}
+                                                                                    onChange={(e) => updateMetricRowData(definition.id, "person_id", e.target.value)}
+                                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                                >
+                                                                                    <option value="">Select player</option>
+                                                                                    {players.map(player => (
+                                                                                        <option key={player.id} value={player.id}>
+                                                                                            {player.full_name} {player.role && player.role !== "PLAYER" ? `(${player.role})` : ""}
+                                                                                        </option>
+                                                                                    ))}
+                                                                                </select>
+                                                                            ) : (
+                                                                                <span className="text-sm text-gray-400 font-semibold px-2">—</span>
+                                                                            )}
+                                                                        </td>
+                                                                        {hasDailyMetrics && (
+                                                                            <td className="px-4 py-3">
+                                                                                {definition.target_level === "daily" ? (
+                                                                                    <input
+                                                                                        type="date"
+                                                                                        value={rowData.date || ""}
+                                                                                        onChange={(e) => updateMetricRowData(definition.id, "date", e.target.value)}
+                                                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <span className="text-sm text-gray-400 font-semibold px-2">—</span>
+                                                                                )}
+                                                                            </td>
+                                                                        )}
+                                                                        <td className="px-4 py-3">
+                                                                            {definition.data_type === "boolean" ? (
+                                                                                <select
+                                                                                    value={rowData.value || ""}
+                                                                                    onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
+                                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                                >
+                                                                                    <option value="">Select</option>
+                                                                                    <option value="true">Yes</option>
+                                                                                    <option value="false">No</option>
+                                                                                </select>
+                                                                            ) : (
+                                                                                <input
+                                                                                    type={definition.data_type === "integer" || definition.data_type === "float" ? "number" : "text"}
+                                                                                    step={definition.data_type === "float" ? "0.01" : definition.data_type === "integer" ? "1" : undefined}
+                                                                                    placeholder="Enter value"
+                                                                                    value={rowData.value || ""}
+                                                                                    onChange={(e) => updateMetricRowData(definition.id, "value", e.target.value)}
+                                                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-950 outline-none focus:bg-white focus:border-gray-950 transition-all"
+                                                                                />
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-center">
+                                                                            <button
+                                                                                onClick={() => handleSubmitMetricRow(definition.id)}
+                                                                                disabled={!canEditMetricField()}
+                                                                                className="px-4 py-2 rounded-lg text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
+                                                                                style={{ backgroundColor: theme.primary_color }}
+                                                                            >
+                                                                                Submit
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </div>
